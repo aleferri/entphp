@@ -1,0 +1,24 @@
+{
+    "name": "alessio/entphp",
+    "description": "Lightweight ORM",
+    "type": "library",
+    "license": "Apache-2",
+    "authors": [
+        {
+            "name": "Alessio Ferri",
+            "email": "alessio.ferri.3012@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "alessio\\entphp\\": "src"
+        }
+    },
+    "minimum-stability": "stable",
+    "require": {
+    },
+    "require-dev": {
+        "psalm/phar": "^4.7",
+        "phpunit/phpunit": "^9.5"
+    }
+}
