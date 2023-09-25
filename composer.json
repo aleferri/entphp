@@ -11,11 +11,21 @@
     ],
     "autoload": {
         "psr-4": {
-            "alessio\\entphp\\": "src"
-        }
+            "entphp\\": "src"
+        },
+        "files": [
+            "src/datatypes/parsers.php"
+        ]
     },
     "minimum-stability": "stable",
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/aleferri/basin.git"
+        }
+    ],
     "require": {
+        "alessio/basin": "dev-main"
     },
     "require-dev": {
         "psalm/phar": "^4.7",
