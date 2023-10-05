@@ -18,7 +18,8 @@
 
 namespace entphp\datatypes;
 
-use basin\concepts\convert\TypeBuilder;
+use basin\concepts\convert\SchemaDeserializer;
+use basin\concepts\Schema;
 use basin\attributes\MapPrimitive;
 use basin\attributes\MapArray;
 use basin\attributes\MapSource;
@@ -28,10 +29,10 @@ use basin\attributes\MapSource;
  *
  * @author Alessio
  */
-class ArrayBuilder implements TypeBuilder {
+class ArrayDeserializer implements SchemaDeserializer {
 
     public static function of_class(string $classname, string $context): self {
-        $instance_builder = FlatBuilder::of_class( $classname, $context );
+        $instance_builder = ObjectDeserializer::of_class( $classname, $context );
 
         $attributes = $instance_builder->class()->getAttributes( MapSource::class );
 
@@ -51,7 +52,7 @@ class ArrayBuilder implements TypeBuilder {
     private $instance_builder;
     private $source;
 
-    public function __construct(TypeBuilder $instance_builder, string $source) {
+    public function __construct(SchemaDeserializer $instance_builder, string $source) {
         $this->instance_builder = $instance_builder;
         $this->source = $source;
     }
@@ -69,10 +70,14 @@ class ArrayBuilder implements TypeBuilder {
     }
 
     public function late_bind_columns() {
-        return $this->instance_builder->late_bind_columns();
+        return $this->instance_builder->schema()->far_sourced_properties();
     }
 
     public function source(): string {
         return $this->source;
+    }
+
+    public function schema(): Schema {
+        return $this->instance_builder->schema();
     }
 }

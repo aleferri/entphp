@@ -18,7 +18,7 @@
 
 namespace entphp\datatypes;
 
-use basin\concepts\convert\TypeBuilder;
+use basin\concepts\convert\Deserializer;
 
 /**
  * Description of Properties
@@ -33,7 +33,7 @@ class Properties {
         $this->map = $map;
     }
 
-    public function converter(string $name): TypeBuilder|callable|null {
+    public function converter(string $name): Deserializer|callable|null {
         $data = $this->map[ $name ];
 
         return $data[ 'converter' ] ?? null;
@@ -70,6 +70,30 @@ class Properties {
     }
 
     public function late_bind(): array {
+        $late = [];
+
+        foreach ( $this->map as $name => $info ) {
+            if ( isset( $info[ 'late_bind' ] ) && $info[ 'late_bind' ] ) {
+                $late[ $name ] = $info;
+            }
+        }
+
+        return $late;
+    }
+
+    public function local_sourced_properties(): array {
+        $locals = [];
+
+        foreach ( $this->map as $name => $info ) {
+            if ( !isset( $locals[ 'late_bind' ] ) && !$locals[ 'late_bind' ] ) {
+                $locals[ $name ] = $info;
+            }
+        }
+
+        return $locals;
+    }
+
+    public function far_sourced_properties(): array {
         $late = [];
 
         foreach ( $this->map as $name => $info ) {

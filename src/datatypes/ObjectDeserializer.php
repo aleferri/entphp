@@ -18,16 +18,18 @@
 
 namespace entphp\datatypes;
 
-use basin\concepts\convert\TypeBuilder;
+use basin\concepts\convert\SchemaDeserializer;
+use basin\concepts\Schema;
 use basin\attributes\MapPrimitive;
 use basin\attributes\MapArray;
+use basin\attributes\MapSource;
 
 /**
  * Description of TypeBuilder
  *
  * @author Alessio
  */
-class FlatBuilder implements TypeBuilder {
+class ObjectDeserializer implements SchemaDeserializer {
 
     public static function select_parser_for_primitive(array $arguments) {
         $kind = $arguments[ 'kind' ];
@@ -88,7 +90,7 @@ class FlatBuilder implements TypeBuilder {
         if ( $custom_parser !== null ) {
             $content = [ 'field' => $name, 'converter' => $custom_parser ];
         } else {
-            $content = [ 'field' => $name, 'converter' => ArrayBuilder::of_class( $classname, $context ) ];
+            $content = [ 'field' => $name, 'converter' => ArrayDeserializer::of_class( $classname, $context ) ];
         }
 
         $content[ 'classname' ] = $classname;
@@ -137,7 +139,7 @@ class FlatBuilder implements TypeBuilder {
             }
         }
 
-        return new self( $classname, new Properties( $properties ) );
+        return new self( $classname, new TableSchema( '', new Properties( $properties ) ) );
     }
 
     /**
@@ -148,9 +150,9 @@ class FlatBuilder implements TypeBuilder {
 
     /**
      *
-     * @var Properties
+     * @var Schema
      */
-    private $properties;
+    private $schema;
 
     /**
      *
@@ -158,9 +160,9 @@ class FlatBuilder implements TypeBuilder {
      */
     private $class;
 
-    public function __construct(string $classname, Properties $properties) {
+    public function __construct(string $classname, Schema $schema) {
         $this->classname = $classname;
-        $this->properties = $properties;
+        $this->schema = $schema;
         $this->class = new \ReflectionClass( $classname );
     }
 
@@ -196,7 +198,7 @@ class FlatBuilder implements TypeBuilder {
     public function instance(array $data): object|array {
         $instance = $this->class->newInstanceWithoutConstructor();
 
-        foreach ( $this->properties->all() as $name => $info ) {
+        foreach ( $this->schema->properties() as $name => $info ) {
             $property = $this->class->getProperty( $name );
             $property->setAccessible( true );
 
@@ -221,10 +223,14 @@ class FlatBuilder implements TypeBuilder {
     }
 
     public function late_bind_columns(): array {
-        return $this->properties->late_bind();
+        return $this->schema->far_sourced_properties();
     }
 
     public function class(): \ReflectionClass {
         return $this->class;
+    }
+
+    public function schema(): Schema {
+        return $this->schema;
     }
 }

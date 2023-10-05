@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 require 'Contact.php';
 require 'Person.php';
 
-use entphp\datatypes\FlatBuilder;
+use entphp\datatypes\ObjectDeserializer;
 
 /**
  * Description of FetchQueryTest
@@ -76,7 +76,7 @@ class FetchQueryTest extends TestCase {
 
         $this->assertEquals( 3, count( $records ) );
 
-        $flat_builder = FlatBuilder::of_class( Contact::class, 'sql' );
+        $flat_builder = ObjectDeserializer::of_class( Contact::class, 'sql' );
 
         $contacts = $flat_builder->instance_all( $records );
 
@@ -100,7 +100,7 @@ class FetchQueryTest extends TestCase {
 
         $this->assertEquals( 3, count( $records ) );
 
-        $flat_builder = FlatBuilder::of_class( Contact::class, 'sql' );
+        $flat_builder = ObjectDeserializer::of_class( Contact::class, 'sql' );
 
         $contacts = $flat_builder->instance_all( $records );
 

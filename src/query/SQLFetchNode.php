@@ -19,8 +19,8 @@
 namespace entphp\query;
 
 use basin\attributes\MapSource;
-use basin\concepts\convert\TypeBuilder;
-use entphp\datatypes\FlatBuilder;
+use basin\concepts\convert\Deserializer;
+use entphp\datatypes\ObjectDeserializer;
 
 /**
  * Description of SQLFetchNode
@@ -29,7 +29,7 @@ use entphp\datatypes\FlatBuilder;
  */
 class SQLFetchNode {
 
-    public static function of_class(string $classname, ?TypeBuilder $builder = null): self {
+    public static function of_class(string $classname, ?Deserializer $builder = null): self {
         $class = new \ReflectionClass( $classname );
         $attributes = $class->getAttributes( MapSource::class );
 
@@ -41,7 +41,7 @@ class SQLFetchNode {
             throw new \RuntimeException( 'missing source for class ' . $classname );
         }
 
-        $type_builder = $builder ?? FlatBuilder::of_class( $classname, 'sql' );
+        $type_builder = $builder ?? ObjectDeserializer::of_class( $classname, 'sql' );
 
         return new self( $classname, $source, $type_builder );
     }
@@ -50,7 +50,7 @@ class SQLFetchNode {
     private $source;
     private $builder;
 
-    public function __construct(string $classname, \ReflectionAttribute $source, TypeBuilder $builder) {
+    public function __construct(string $classname, \ReflectionAttribute $source, Deserializer $builder) {
         $this->classname = $classname;
         $this->source = $source;
         $this->builder = $builder;
@@ -71,7 +71,7 @@ class SQLFetchNode {
         return $query;
     }
 
-    public function builder() {
+    public function builder(): Deserializer {
         return $this->builder;
     }
 }
