@@ -69,23 +69,13 @@ class Properties {
         $this->map[ $name ][ $key ] = $value;
     }
 
-    public function late_bind(): array {
-        $late = [];
-
-        foreach ( $this->map as $name => $info ) {
-            if ( isset( $info[ 'late_bind' ] ) && $info[ 'late_bind' ] ) {
-                $late[ $name ] = $info;
-            }
-        }
-
-        return $late;
-    }
-
     public function local_sourced_properties(): array {
         $locals = [];
 
         foreach ( $this->map as $name => $info ) {
-            if ( !isset( $locals[ 'late_bind' ] ) && !$locals[ 'late_bind' ] ) {
+            $location = $info[ 'location' ] ?? 'local';
+
+            if ( $location === 'local' ) {
                 $locals[ $name ] = $info;
             }
         }
@@ -93,15 +83,17 @@ class Properties {
         return $locals;
     }
 
-    public function far_sourced_properties(): array {
-        $late = [];
+    public function foreign_sourced_properties(): array {
+        $foreign = [];
 
         foreach ( $this->map as $name => $info ) {
-            if ( isset( $info[ 'late_bind' ] ) && $info[ 'late_bind' ] ) {
-                $late[ $name ] = $info;
+            $location = $info[ 'location' ] ?? 'local';
+
+            if ( $location === 'foreign' ) {
+                $foreign[ $name ] = $info;
             }
         }
 
-        return $late;
+        return $foreign;
     }
 }

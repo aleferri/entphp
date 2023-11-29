@@ -18,6 +18,9 @@
 
 namespace entphp\query;
 
+use basin\concepts\convert\Deserializer;
+use entphp\datatypes\ObjectDeserializer;
+
 /**
  * Description of SQLFetchPlanner
  *
@@ -53,11 +56,11 @@ class SQLFetchPlanner {
         return $records;
     }
 
-    public function fetch_all(string $classname, SQLFetchQuery $query): array {
+    public function fetch_all(string $classname, SQLFetchQuery $query, ?Deserializer $deserializer = null): array {
         if ( !isset( $this->definitions[ $classname ] ) ) {
             $node = SQLFetchNode::of_class( $classname );
             $this->definitions[ $classname ] = $node;
-            $this->net[ $classname ] = $node->builder()->late_bind_columns();
+            $this->net[ $classname ] = $node->schema()->foreign_sourced_properties();
         }
 
         $records = $this->execute_query( $this->executor, $query );
@@ -66,36 +69,39 @@ class SQLFetchPlanner {
             $records = $this->fill_column( $dep_column, $records );
         }
 
-        return $this->definitions[ $classname ]
-                        ->builder()
-                        ->instance_all( $records );
+        if ( $deserializer === null ) {
+            $schema = $this->definitions[ $classname ]->schema();
+            $deserializer = new ObjectDeserializer( $classname, $schema );
+        }
+
+        return $deserializer->instance_all( $records );
     }
 
     public function fill_array(array $records, string $to, array $values, array $indexed_by, array $indexes): array {
-        foreach ( $values as $column ) {
+        foreach ( $values as $data ) {
             $row_keys = [];
             foreach ( $indexed_by as $key ) {
-                $row_keys[] = $column[ $key ];
+                $row_keys[] = $data[ $key ];
             }
             $row_key = implode( ',', $row_keys );
 
             $index = $indexes[ $row_key ];
 
-            $records[ $index ][ $to ][] = $column;
+            $records[ $index ][ $to ][] = $data;
         }
 
         return $records;
     }
 
     public function fill_object(array $records, string $to, array $values, array $indexed_by, array $indexes): array {
-        foreach ( $values as $column ) {
+        foreach ( $values as $data ) {
             $row_keys = [];
             foreach ( $indexed_by as $key ) {
-                $row_keys[] = $column[ $key ];
+                $row_keys[] = $data[ $key ];
             }
             $row_key = implode( ',', $row_keys );
             $index = $indexes[ $row_key ];
-            $records[ $index ][ $to ] = $column;
+            $records[ $index ][ $to ] = $data;
         }
 
         return $records;
@@ -147,7 +153,7 @@ class SQLFetchPlanner {
 
         [ $records, $values, $rows_indexes, $row_indexed_by ] = $this->build_index_for_key(
                 $field,
-                $derived[ 'ref' ],
+                $derived[ 'link' ],
                 $records,
                 $derived[ 'default' ] ?? null
         );
@@ -164,9 +170,9 @@ class SQLFetchPlanner {
             $data = $this->fill_column( $derived, $data );
         }
 
-        if ( $derived[ 'converter' ]->arity() === 1 ) {
+        if ( $derived[ 'arity' ] === 1 ) {
             $records = $this->fill_object( $records, $field, $data, $row_indexed_by, $rows_indexes );
-        } else if ( $derived[ 'converter' ]->arity() > 1 ) {
+        } else if ( $derived[ 'arity' ] === 'n' ) {
             $records = $this->fill_array( $records, $field, $data, $row_indexed_by, $rows_indexes );
         }
 

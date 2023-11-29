@@ -122,7 +122,9 @@ class FetchQueryTest extends TestCase {
 
         $this->assertEquals( 7, count( $records ) );
 
-        $contacts = $fetch_node->builder()->instance_all( $records );
+        $builder = new ObjectDeserializer( Contact::class, $fetch_node->schema() );
+
+        $contacts = $builder->instance_all( $records );
 
         $this->assertEquals( 7, count( $contacts ) );
 
@@ -148,6 +150,10 @@ class FetchQueryTest extends TestCase {
         foreach ( $people as $person ) {
             $this->assertEquals( Person::class, get_class( $person ) );
             $this->assertEquals( 4, count( $person->get_contacts() ) );
+
+            foreach ( $person->get_contacts() as $contact ) {
+                $this->assertEquals( Contact::class, get_class( $contact ) );
+            }
         }
     }
 }

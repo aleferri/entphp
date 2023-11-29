@@ -31,115 +31,11 @@ use basin\attributes\MapSource;
  */
 class ObjectDeserializer implements SchemaDeserializer {
 
-    public static function select_parser_for_primitive(array $arguments) {
-        $kind = $arguments[ 'kind' ];
-
-        if ( $kind === 'string' ) {
-            return '\entphp\datatypes\identity';
-        }
-
-        if ( $kind === 'int' ) {
-            return '\entphp\datatypes\to_int_strict';
-        }
-
-        if ( $kind === 'int|null' ) {
-            return '\entphp\datatypes\to_int';
-        }
-
-        if ( $kind === 'date' ) {
-            return '\entphp\datatypes\to_date_strict';
-        }
-
-        if ( $kind === 'date|null' ) {
-            return '\entphp\datatypes\to_date';
-        }
-
-        throw new \RuntimeException( 'unexpected kind' );
-    }
-
-    public static function of_primitive(\ReflectionProperty $property, \ReflectionAttribute $primitive, array $defaults = []) {
-        $arguments = $primitive->getArguments();
-
-        $settings = $arguments[ 'settings' ];
-        $name = $property->getName();
-        $field = $settings[ 'field' ] ?? $property->getName();
-        $custom_parser = $settings[ 'custom_converter' ] ?? null;
-        if ( $custom_parser !== null ) {
-            $content = [ 'field' => $field, 'converter' => $custom_parser ];
-        } else {
-            $content = [ 'field' => $field, 'converter' => self::select_parser_for_primitive( $arguments ) ];
-        }
-
-        if ( isset( $defaults[ $name ] ) || isset( $settings[ 'default' ] ) ) {
-            $default = $defaults[ $name ] ?? $settings[ 'default' ];
-            $content[ 'default' ] = $default;
-        }
-
-        return [ $name, $content ];
-    }
-
-    public static function of_arrays(\ReflectionProperty $property, \ReflectionAttribute $array) {
-        $arguments = $array->getArguments();
-
-        $context = $arguments[ 'context' ];
-        $classname = $arguments[ 'classname' ];
-        $settings = $arguments[ 'settings' ];
-        $name = $property->getName();
-        $custom_parser = $settings[ 'custom_converter' ] ?? null;
-
-        if ( $custom_parser !== null ) {
-            $content = [ 'field' => $name, 'converter' => $custom_parser ];
-        } else {
-            $content = [ 'field' => $name, 'converter' => ArrayDeserializer::of_class( $classname, $context ) ];
-        }
-
-        $content[ 'classname' ] = $classname;
-        $content[ 'ref' ] = $arguments[ 'ref' ];
-        $content[ 'late_bind' ] = true;
-        if ( isset( $settings[ 'default' ] ) ) {
-            $content[ 'default' ] = $settings[ 'default' ];
-        }
-
-        return [ $name, $content ];
-    }
-
     public static function of_class(string $classname, string $context, array $defaults = []) {
         $class = new \ReflectionClass( $classname );
-        $properties = [];
+        $schema = TableSchema::of_class( $class, $context );
 
-        foreach ( $class->getProperties() as $property ) {
-            $primitives = $property->getAttributes( MapPrimitive::class );
-
-            foreach ( $primitives as $primitive ) {
-                $arguments = $primitive->getArguments();
-
-                if ( $arguments[ 'context' ] !== $context ) {
-                    continue;
-                }
-
-                $settings = $arguments[ 'settings' ];
-
-                [ $name, $content ] = self::of_primitive( $property, $primitive, $defaults );
-                $properties[ $name ] = $content;
-            }
-
-            $arrays = $property->getAttributes( MapArray::class );
-
-            foreach ( $arrays as $array ) {
-                $arguments = $array->getArguments();
-
-                if ( $arguments[ 'context' ] !== $context ) {
-                    continue;
-                }
-
-                $settings = $arguments[ 'settings' ];
-
-                [ $name, $content ] = self::of_arrays( $property, $array );
-                $properties[ $name ] = $content;
-            }
-        }
-
-        return new self( $classname, new TableSchema( '', new Properties( $properties ) ) );
+        return new self( $classname, $schema, $defaults );
     }
 
     /**
@@ -156,14 +52,28 @@ class ObjectDeserializer implements SchemaDeserializer {
 
     /**
      *
+     * @var array
+     */
+    private $defaults;
+
+    /**
+     *
      * @var ReflectionClass|null
      */
     private $class;
 
-    public function __construct(string $classname, Schema $schema) {
+    /**
+     *
+     * @var array
+     */
+    private $cached_builders;
+
+    public function __construct(string $classname, Schema $schema, array $defaults = []) {
         $this->classname = $classname;
         $this->schema = $schema;
+        $this->defaults = $defaults;
         $this->class = new \ReflectionClass( $classname );
+        $this->cached_builders = [];
     }
 
     private function raw_of(array $info, array $data): mixed {
@@ -173,22 +83,60 @@ class ObjectDeserializer implements SchemaDeserializer {
             return $data[ $field ];
         }
 
+        if ( isset( $this->defaults[ $field ] ) ) {
+            return $this->defaults[ $field ];
+        }
+
         throw new \RuntimeException( 'cannot find value' );
+    }
+
+    private function parse_of_kind(array $info, array $data, mixed $raw): mixed {
+        $kind = $info[ 'kind' ] ?? null;
+
+        if ( $kind === null ) {
+            return $raw;
+        }
+
+        if ( $kind === 'string' ) {
+            return \entphp\datatypes\identity( $raw );
+        }
+
+        if ( $kind === 'int' ) {
+            return \entphp\datatypes\to_int_strict( $raw );
+        }
+
+        if ( $kind === 'int|null' ) {
+            return \entphp\datatypes\to_int( $raw );
+        }
+
+        if ( $kind === 'date' ) {
+            return \entphp\datatypes\to_date_strict( $raw );
+        }
+
+        if ( $kind === 'date|null' ) {
+            return \entphp\datatypes\to_date( $raw );
+        }
+
+        throw new \RuntimeException( 'unexpected kind' );
     }
 
     private function value_of(array $info, array $data): mixed {
         $converter = $info[ 'converter' ] ?? null;
         $raw = $this->raw_of( $info, $data );
 
-        if ( $converter === null ) {
-            return $raw;
+        if ( $converter === null && isset( $info[ 'kind' ] ) ) {
+            return $this->parse_of_kind( $info, $data, $raw );
         }
 
         if ( is_callable( $converter ) ) {
-            return $converter( $raw );
+            return $converter( $raw, $info[ 'arity' ] );
         }
 
-        if ( $converter->arity() > 1 ) {
+        if ( $converter === null ) {
+            $converter = new ObjectDeserializer( $info[ 'classname' ], $info[ 'item_schema' ] );
+        }
+
+        if ( $info[ 'arity' ] === 'n' ) {
             return $converter->instance_all( $raw );
         } else {
             return $converter->instance( $raw );
@@ -216,14 +164,6 @@ class ObjectDeserializer implements SchemaDeserializer {
         }
 
         return $instances;
-    }
-
-    public function arity(): int {
-        return 1;
-    }
-
-    public function late_bind_columns(): array {
-        return $this->schema->far_sourced_properties();
     }
 
     public function class(): \ReflectionClass {

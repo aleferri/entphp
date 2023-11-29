@@ -19,6 +19,9 @@
 namespace entphp\datatypes;
 
 use basin\concepts\Schema;
+use basin\attributes\MapPrimitive;
+use basin\attributes\MapArray;
+use basin\attributes\MapSource;
 
 /**
  * Description of TableSchema
@@ -27,7 +30,71 @@ use basin\concepts\Schema;
  */
 class TableSchema implements Schema {
 
+    public static function of_primitive(\ReflectionProperty $property, \ReflectionAttribute $primitive) {
+        $arguments = $primitive->getArguments();
+
+        $settings = $arguments[ 'settings' ];
+        $name = $property->getName();
+        $field = $settings[ 'field' ] ?? $property->getName();
+        $kind = $arguments[ 'kind' ];
+        $custom_converter = $settings[ 'custom_converter' ] ?? null;
+
+        $content = [
+                'arity'     => 1,
+                'field'     => $field,
+                'kind'      => $kind,
+                'converter' => $custom_converter,
+        ];
+
+        return [ $name, $content ];
+    }
+
+    public static function of_array(\ReflectionProperty $property, \ReflectionAttribute $array, string $context) {
+        $arguments = $array->getArguments();
+
+        $classname = $arguments[ 'classname' ];
+        $settings = $arguments[ 'settings' ];
+        $name = $property->getName();
+        $custom_converter = $settings[ 'custom_converter' ] ?? null;
+
+        $content = [
+                'arity'       => 'n',
+                'field'       => $name,
+                'classname'   => $classname,
+                'converter'   => $custom_converter,
+                'location'    => 'foreign',
+                'link'        => $arguments[ 'ref' ],
+                'item_schema' => self::of_class( new \ReflectionClass( $classname ), $context ),
+        ];
+
+        return [ $name, $content ];
+    }
+
+    public static function find_source(\ReflectionClass $class, string $context): string {
+        $attributes = $class->getAttributes( MapSource::class );
+
+        $source = null;
+
+        foreach ( $attributes as $attribute ) {
+            $args = $attribute->getArguments();
+
+            if ( $args[ 'context' ] !== $context ) {
+                continue;
+            }
+
+            $source = $args[ 'source' ];
+        }
+
+        if ( $source === null ) {
+            throw new \RuntimeException( 'missing source for class ' . $class->getName() );
+        }
+
+        return $source;
+    }
+
     public static function of_class(\ReflectionClass $class, string $context): TableSchema {
+        $source = self::find_source( $class, $context );
+
         $properties = [];
 
         foreach ( $class->getProperties() as $property ) {
@@ -42,7 +109,7 @@ class TableSchema implements Schema {
 
                 $settings = $arguments[ 'settings' ];
 
-                [ $name, $content ] = self::of_primitive( $property, $primitive, $defaults );
+                [ $name, $content ] = self::of_primitive( $property, $primitive );
                 $properties[ $name ] = $content;
             }
 
@@ -57,12 +124,12 @@ class TableSchema implements Schema {
 
                 $settings = $arguments[ 'settings' ];
 
-                [ $name, $content ] = self::of_arrays( $property, $array );
+                [ $name, $content ] = self::of_array( $property, $array, $context );
                 $properties[ $name ] = $content;
             }
         }
 
-        return new self( '', new Properties( $properties ) );
+        return new self( $source, new Properties( $properties ) );
     }
 
     private $source;
@@ -80,7 +147,7 @@ class TableSchema implements Schema {
     }
 
     public function sources(): array {
-        $far_sourced = $this->properties->far_sourced_properties();
+        $far_sourced = $this->properties->foreign_sourced_properties();
 
         $sources = [];
 
@@ -108,9 +175,8 @@ class TableSchema implements Schema {
         return $this->properties->local_sourced_properties();
     }
 
-    //put your code here
-    public function far_sourced_properties(): array {
-        return $this->properties->far_sourced_properties();
+    public function foreign_sourced_properties(): array {
+        return $this->properties->foreign_sourced_properties();
     }
 
     public function is_cacheable(): bool {
