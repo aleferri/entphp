@@ -18,6 +18,10 @@
 
 namespace entphp\datatypes;
 
+function identity(mixed $raw): mixed {
+    return $raw;
+}
+
 function to_int(mixed $raw): int|null {
     if ( is_int( $raw ) ) {
         return $raw;
@@ -43,6 +47,33 @@ function to_int_strict(mixed $raw): int {
 
     if ( $value === null ) {
         throw new \RuntimeException( $raw . ' is not a valid integer' );
+    }
+
+    return $value;
+}
+
+function to_date(mixed $raw): \DateTimeImmutable|null {
+    $date = $raw;
+
+    if ( $raw === null ) {
+        return null;
+    }
+
+    if ( str_contains( $date, 'T' ) ) {
+        [ $date, $time ] = explode( 'T', $date );
+        unset( $time );
+    }
+
+    $date_obj = new \DateTimeImmutable( $date );
+
+    return $date_obj;
+}
+
+function to_date_strict(mixed $raw): \DateTimeImmutable {
+    $value = to_date( $raw );
+
+    if ( $value === null ) {
+        throw new \RuntimeException( $raw . ' is not a valid date' );
     }
 
     return $value;

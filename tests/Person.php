@@ -17,55 +17,40 @@
  */
 
 use basin\attributes\MapPrimitive;
+use basin\attributes\MapArray;
 use basin\attributes\MapSource;
 
 /**
- * Description of Contact
+ * Description of People
  *
  * @author Alessio
  */
-#[MapSource(context: 'sql', source: 'contacts')]
-class Contact {
+#[MapSource(context: 'sql', source: 'people')]
+class Person {
 
     public function __construct(
             #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
-            private ?int $id,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $name,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $primary_phone,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $primary_email,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $secondary_email,
+            private int $person_id,
             #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
             private string $first_name,
             #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
             private string $last_name,
+            #[MapPrimitive(context: 'sql', kind: 'date', settings: [])]
+            private \DateTimeImmutable $born_at,
             #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $address_formatted
+            private string $notes,
+            #[MapArray(context: 'sql', classname: 'Contact', ref: [ 'person_id' => 'person_id' ], settings: [ 'default' => [] ])]
+            private array $contacts,
     ) {
 
     }
 
-    public function get_id(): ?int {
-        return $this->id;
+    public function get_person_id(): int {
+        return $this->person_id;
     }
 
-    public function get_name(): string {
-        return $this->name;
-    }
-
-    public function get_primary_phone(): string {
-        return $this->primary_phone;
-    }
-
-    public function get_primary_email(): string {
-        return $this->primary_email;
-    }
-
-    public function get_secondary_email(): string {
-        return $this->secondary_email;
+    public function get_contacts(): array {
+        return $this->contacts;
     }
 
     public function get_first_name(): string {
@@ -76,7 +61,11 @@ class Contact {
         return $this->last_name;
     }
 
-    public function get_address_formatted(): string {
-        return $this->address_formatted;
+    public function get_born_at(): \DateTimeImmutable {
+        return $this->born_at;
+    }
+
+    public function get_notes(): string {
+        return $this->notes;
     }
 }

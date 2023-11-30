@@ -18,7 +18,10 @@
 
 use PHPUnit\Framework\TestCase;
 
-require "Contact.php";
+require 'Contact.php';
+require 'Person.php';
+
+use entphp\datatypes\ObjectDeserializer;
 
 /**
  * Description of FetchQueryTest
@@ -26,24 +29,6 @@ require "Contact.php";
  * @author Alessio
  */
 class FetchQueryTest extends TestCase {
-
-    private function get_flat_builder_manual() {
-        $flat_builder = new entphp\datatypes\FlatBuilder(
-                Contact::class,
-                [
-                'id'                => [ 'field' => 'id', 'parse' => 'entphp\\datatypes\\to_int' ],
-                'name'              => 'name',
-                'primary_phone'     => 'primary_phone',
-                'primary_email'     => 'primary_email',
-                'secondary_email'   => 'secondary_email',
-                'first_name'        => 'first_name',
-                'last_name'         => 'last_name',
-                'address_formatted' => 'address_formatted'
-                ]
-        );
-
-        return $flat_builder;
-    }
 
     private function get_pdo_sqlite() {
         $pdo = new PDO(
@@ -91,7 +76,7 @@ class FetchQueryTest extends TestCase {
 
         $this->assertEquals( 3, count( $records ) );
 
-        $flat_builder = $this->get_flat_builder_manual();
+        $flat_builder = ObjectDeserializer::of_class( Contact::class, 'sql' );
 
         $contacts = $flat_builder->instance_all( $records );
 
@@ -115,7 +100,7 @@ class FetchQueryTest extends TestCase {
 
         $this->assertEquals( 3, count( $records ) );
 
-        $flat_builder = entphp\datatypes\FlatBuilder::of_class( Contact::class, 'sql' );
+        $flat_builder = ObjectDeserializer::of_class( Contact::class, 'sql' );
 
         $contacts = $flat_builder->instance_all( $records );
 
@@ -123,6 +108,52 @@ class FetchQueryTest extends TestCase {
 
         foreach ( $contacts as $contact ) {
             $this->assertEquals( Contact::class, get_class( $contact ) );
+        }
+    }
+
+    public function testFetchDerivedValues() {
+        $pdo = $this->get_pdo_sqlite();
+
+        $fetch_node = \entphp\query\SQLFetchNode::of_class( Contact::class );
+
+        $query = $fetch_node->query_for( [ 'person_id' => [ 1, 2, 3 ] ] )->into_query();
+
+        $records = $this->execute_query( $pdo, $query );
+
+        $this->assertEquals( 7, count( $records ) );
+
+        $builder = new ObjectDeserializer( Contact::class, $fetch_node->schema() );
+
+        $contacts = $builder->instance_all( $records );
+
+        $this->assertEquals( 7, count( $contacts ) );
+
+        foreach ( $contacts as $contact ) {
+            $this->assertEquals( Contact::class, get_class( $contact ) );
+        }
+    }
+
+    public function testReadTableArrayDerived() {
+        $pdo = $this->get_pdo_sqlite();
+
+        $query = \entphp\query\SQLFetchQueryBuilder::start()
+                ->select( 'p.*' )
+                ->from( 'people', 'p' )
+                ->filter_by( 'per_row_main', 'person_id = 1' )
+                ->into_query();
+
+        $planner = new \entphp\query\SQLFetchPlanner( $pdo );
+        $people = $planner->fetch_all( Person::class, $query );
+
+        $this->assertEquals( 1, count( $people ) );
+
+        foreach ( $people as $person ) {
+            $this->assertEquals( Person::class, get_class( $person ) );
+            $this->assertEquals( 4, count( $person->get_contacts() ) );
+
+            foreach ( $person->get_contacts() as $contact ) {
+                $this->assertEquals( Contact::class, get_class( $contact ) );
+            }
         }
     }
 }
