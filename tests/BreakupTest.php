@@ -87,8 +87,6 @@ class BreakupTest extends TestCase {
         $serializer = \entphp\datatypes\ObjectSerializer::of_class( Person::class, 'sql' );
         $breaked = $serializer->breakup_all( $people );
 
-        var_dump( $breaked );
-
         $this->assertTrue( true );
     }
 
