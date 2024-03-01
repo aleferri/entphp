@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Copyright 2023 Alessio.
+ * Copyright 2024 Alessio.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ require_once 'Person.php';
 use entphp\datatypes\ObjectDeserializer;
 
 /**
- * Description of FetchQueryTest
+ * Description of BreakupTest
  *
  * @author Alessio
  */
-class FetchQueryTest extends TestCase {
+class BreakupTest extends TestCase {
 
     private function get_pdo_sqlite() {
         $pdo = new PDO(
@@ -61,53 +61,7 @@ class FetchQueryTest extends TestCase {
         return $records;
     }
 
-    public function testReadTablePrimitiveDerived() {
-        $pdo = $this->get_pdo_sqlite();
-
-        $query = \entphp\query\SQLFetchQueryBuilder::start()
-            ->select( "cts.*" )
-            ->from( 'contacts', 'cts' )
-            ->filter_by( 'per_row_main', 'primary_email LIKE ?', '%outlook.com' )
-            ->into_query();
-
-        $records = $this->execute_query( $pdo, $query );
-
-        $this->assertEquals( 3, count( $records ) );
-
-        $flat_builder = ObjectDeserializer::of_class( Contact::class, 'sql' );
-
-        $contacts = $flat_builder->instance_all( $records );
-
-        $this->assertEquals( 3, count( $contacts ) );
-
-        foreach ( $contacts as $contact ) {
-            $this->assertEquals( Contact::class, get_class( $contact ) );
-        }
-    }
-
-    public function testFetchDerivedValues() {
-        $pdo = $this->get_pdo_sqlite();
-
-        $fetch_node = \entphp\query\SQLFetchNode::of_class( Contact::class );
-
-        $query = $fetch_node->query_for( [ 'person_id' => [ 1, 2, 3 ] ] )->into_query();
-
-        $records = $this->execute_query( $pdo, $query );
-
-        $this->assertEquals( 7, count( $records ) );
-
-        $builder = new ObjectDeserializer( Contact::class, $fetch_node->schema() );
-
-        $contacts = $builder->instance_all( $records );
-
-        $this->assertEquals( 7, count( $contacts ) );
-
-        foreach ( $contacts as $contact ) {
-            $this->assertEquals( Contact::class, get_class( $contact ) );
-        }
-    }
-
-    public function testReadTableArrayDerived() {
+    public function testBreakupDerivedSingle() {
         $pdo = $this->get_pdo_sqlite();
 
         $query = \entphp\query\SQLFetchQueryBuilder::start()
@@ -129,6 +83,13 @@ class FetchQueryTest extends TestCase {
                 $this->assertEquals( Contact::class, get_class( $contact ) );
             }
         }
+
+        $serializer = \entphp\datatypes\ObjectSerializer::of_class( Person::class, 'sql' );
+        $breaked = $serializer->breakup_all( $people );
+
+        var_dump( $breaked );
+
+        $this->assertTrue( true );
     }
 
 }

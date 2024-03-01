@@ -20,9 +20,6 @@ namespace entphp\datatypes;
 
 use basin\concepts\convert\SchemaDeserializer;
 use basin\concepts\Schema;
-use basin\attributes\MapPrimitive;
-use basin\attributes\MapArray;
-use basin\attributes\MapSource;
 
 /**
  * Description of TypeBuilder
@@ -62,18 +59,11 @@ class ObjectDeserializer implements SchemaDeserializer {
      */
     private $class;
 
-    /**
-     *
-     * @var array
-     */
-    private $cached_builders;
-
     public function __construct(string $classname, Schema $schema, array $defaults = []) {
         $this->classname = $classname;
         $this->schema = $schema;
         $this->defaults = $defaults;
         $this->class = new \ReflectionClass( $classname );
-        $this->cached_builders = [];
     }
 
     private function raw_of(array $info, array $data): mixed {
@@ -133,7 +123,8 @@ class ObjectDeserializer implements SchemaDeserializer {
         }
 
         if ( $converter === null ) {
-            $converter = new ObjectDeserializer( $info[ 'classname' ], $info[ 'item_schema' ] );
+            $converter = new ObjectDeserializer( $info[ 'classname' ],
+                                                 $info[ 'item_schema' ] );
         }
 
         if ( $info[ 'arity' ] === 'n' ) {
@@ -173,4 +164,5 @@ class ObjectDeserializer implements SchemaDeserializer {
     public function schema(): Schema {
         return $this->schema;
     }
+
 }
