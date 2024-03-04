@@ -17,11 +17,11 @@
  */
 
 use PHPUnit\Framework\TestCase;
+use entphp\serde\ObjectSerializer;
 
 require_once 'Contact.php';
+require_once 'Address.php';
 require_once 'Person.php';
-
-use entphp\datatypes\ObjectDeserializer;
 
 /**
  * Description of BreakupTest
@@ -61,7 +61,7 @@ class BreakupTest extends TestCase {
         return $records;
     }
 
-    public function testBreakupDerivedSingle() {
+    public function testBreakupPersisted() {
         $pdo = $this->get_pdo_sqlite();
 
         $query = \entphp\query\SQLFetchQueryBuilder::start()
@@ -84,10 +84,64 @@ class BreakupTest extends TestCase {
             }
         }
 
-        $serializer = \entphp\datatypes\ObjectSerializer::of_class( Person::class, 'sql' );
+        $id_factory = new entphp\identity\IdentityFactorySequential( 'sql' );
+
+        $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_factory );
         $breaked = $serializer->breakup_all( $people );
 
-        $this->assertTrue( true );
+        $this->assertTrue( isset( $breaked[ 'people' ] ) );
+        $this->assertTrue( isset( $breaked[ 'contacts' ] ) );
+    }
+
+    public function testBreakupTransients() {
+        $person = new Person( null, 'A', 'B', new \DateTimeImmutable(), '', new Address() );
+        $person->add_contact( new Contact( null, 'home' ) );
+        $person->add_contact( new Contact( null, 'office' ) );
+        $person->add_contact( new Contact( null, 'personal' ) );
+
+        $second = new Person( null, 'B', 'C', new \DateTimeImmutable() );
+        $second->add_contact( new Contact( null, 'home' ) );
+        $second->add_contact( new Contact( null, 'spouse' ) );
+
+        $people = [ $person, $second ];
+
+        $id_factory = new entphp\identity\IdentityFactorySequential( 'sql' );
+
+        $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_factory );
+        $breaked = $serializer->breakup_all( $people );
+
+        $this->assertTrue( isset( $breaked[ 'people' ] ) );
+        $this->assertTrue( isset( $breaked[ 'contacts' ] ) );
+        $this->assertEquals( 2, count( $breaked[ 'people' ] ) );
+        $this->assertEquals( 5, count( $breaked[ 'contacts' ] ) );
+    }
+
+    public function testBreakupTransientsEmulate() {
+        $person = new Person( null, 'A', 'B', new \DateTimeImmutable() );
+        $person->add_contact( new Contact( null, 'home' ) );
+        $person->add_contact( new Contact( null, 'office' ) );
+        $person->add_contact( new Contact( null, 'personal' ) );
+
+        $second = new Person( null, 'A', 'B', new \DateTimeImmutable() );
+        $second->add_contact( new Contact( null, 'home' ) );
+        $second->add_contact( new Contact( null, 'spouse' ) );
+
+        $people = [ $person, $second ];
+
+        $db_test = new entphp\drivers\TestDriver();
+        $id_factory = new entphp\identity\IdentityFactorySequential( 'sql' );
+
+        $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_factory );
+        $breaked = $serializer->breakup_all( $people );
+
+        foreach ( $breaked as $source => $records ) {
+            foreach ( $records as &$record ) {
+                if ( isset( $record[ '__identity' ] ) && $record[ '__identity' ] instanceof \entphp\identity\TransientIdentity ) {
+                    $id = $db_test->next_key( $source );
+                }
+            }
+            unset( $record );
+        }
     }
 
 }

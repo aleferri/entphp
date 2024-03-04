@@ -20,7 +20,7 @@ namespace entphp\query;
 
 use basin\attributes\MapSource;
 use basin\concepts\Schema;
-use entphp\datatypes\TableSchema;
+use entphp\serde\TableSchema;
 
 /**
  * Description of SQLFetchNode
@@ -61,8 +61,8 @@ class SQLFetchNode {
 
         $table = $arguments[ 'source' ];
         $query = SQLFetchQueryBuilder::start()
-                ->from( $table, 'ent' )
-                ->select( 'ent.*' );
+            ->from( $table, 'ent' )
+            ->select( 'ent.*' );
 
         foreach ( $values as $key => $list ) {
             $query = $query->filter_by( 'per_row_' . $key, $key . ' IN (' . implode( ',', $list ) . ')' );
@@ -74,4 +74,5 @@ class SQLFetchNode {
     public function schema(): Schema {
         return $this->schema;
     }
+
 }

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-namespace entphp\datatypes;
+namespace entphp\serde;
 
 use basin\concepts\convert\Deserializer;
 
@@ -96,4 +96,5 @@ class Properties {
 
         return $foreign;
     }
+
 }

@@ -19,7 +19,7 @@
 namespace entphp\query;
 
 use basin\concepts\convert\Deserializer;
-use entphp\datatypes\ObjectDeserializer;
+use entphp\serde\ObjectDeserializer;
 
 /**
  * Description of SQLFetchPlanner
@@ -47,7 +47,7 @@ class SQLFetchPlanner {
         foreach ( $query->values() as $value ) {
             $st->bindValue( $i, $value );
 
-            $i++;
+            $i ++;
         }
 
         $st->execute();
@@ -57,7 +57,7 @@ class SQLFetchPlanner {
     }
 
     public function fetch_all(string $classname, SQLFetchQuery $query, ?Deserializer $deserializer = null): array {
-        if ( !isset( $this->definitions[ $classname ] ) ) {
+        if ( ! isset( $this->definitions[ $classname ] ) ) {
             $node = SQLFetchNode::of_class( $classname );
             $this->definitions[ $classname ] = $node;
             $this->net[ $classname ] = $node->schema()->foreign_sourced_properties();
@@ -135,7 +135,7 @@ class SQLFetchPlanner {
             $records[ $i ][ $key ] = $default;
 
             $indexes[ $row_key ] = $i;
-            $i++;
+            $i ++;
         }
 
         return [ $records, $values, $indexes, $indexed_by ];
@@ -145,17 +145,14 @@ class SQLFetchPlanner {
         $classname = $derived[ 'classname' ];
         $source_name = $classname;
 
-        if ( !isset( $this->definitions[ $source_name ] ) ) {
+        if ( ! isset( $this->definitions[ $source_name ] ) ) {
             $this->definitions[ $source_name ] = SQLFetchNode::of_class( $classname, $derived[ 'converter' ] ?? null );
         }
 
         $field = $derived[ 'field' ];
 
         [ $records, $values, $rows_indexes, $row_indexed_by ] = $this->build_index_for_key(
-                $field,
-                $derived[ 'link' ],
-                $records,
-                $derived[ 'default' ] ?? null
+            $field, $derived[ 'link' ], $records, $derived[ 'default' ] ?? null
         );
 
         $node = $this->definitions[ $classname ];
@@ -178,4 +175,5 @@ class SQLFetchPlanner {
 
         return $records;
     }
+
 }

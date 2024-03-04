@@ -18,6 +18,7 @@
 
 use basin\attributes\MapPrimitive;
 use basin\attributes\MapSource;
+use basin\attributes\MapIdentity;
 
 /**
  * Description of Contact
@@ -25,25 +26,28 @@ use basin\attributes\MapSource;
  * @author Alessio
  */
 #[MapSource(context: 'sql', source: 'contacts')]
-class Contact {
+class Contact implements \basin\concepts\Persistable {
+
+    use \entphp\persistable\PersistableTrait;
 
     public function __construct(
-            #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
-            private ?int $id,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $name,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $primary_phone,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $primary_email,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $secondary_email,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $first_name,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $last_name,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $address_formatted
+        #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
+        #[MapIdentity(context: 'sql', kind: 'single')]
+        private ?int $id,
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
+        private string $name = '',
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $primary_phone = '',
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $primary_email = '',
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $secondary_email = '',
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $first_name = '',
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $last_name = '',
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $address_formatted = ''
     ) {
 
     }
@@ -79,4 +83,5 @@ class Contact {
     public function get_address_formatted(): string {
         return $this->address_formatted;
     }
+
 }

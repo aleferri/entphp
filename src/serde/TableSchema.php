@@ -16,12 +16,14 @@
  * limitations under the License.
  */
 
-namespace entphp\datatypes;
+namespace entphp\serde;
 
 use basin\concepts\Schema;
 use basin\attributes\MapPrimitive;
 use basin\attributes\MapArray;
+use basin\attributes\MapObject;
 use basin\attributes\MapSource;
+use entphp\datatypes\None;
 
 /**
  * Description of TableSchema
@@ -40,10 +42,11 @@ class TableSchema implements Schema {
         $custom_converter = $settings[ 'custom_converter' ] ?? null;
 
         $content = [
-                'arity'     => 1,
-                'field'     => $field,
-                'kind'      => $kind,
-                'converter' => $custom_converter,
+            'arity'     => 1,
+            'field'     => $field,
+            'kind'      => $kind,
+            'converter' => $custom_converter,
+            'default'   => $settings[ 'default' ] ?? None::instance(),
         ];
 
         return [ $name, $content ];
@@ -58,13 +61,36 @@ class TableSchema implements Schema {
         $custom_converter = $settings[ 'custom_converter' ] ?? null;
 
         $content = [
-                'arity'       => 'n',
-                'field'       => $name,
-                'classname'   => $classname,
-                'converter'   => $custom_converter,
-                'location'    => 'foreign',
-                'link'        => $arguments[ 'ref' ],
-                'item_schema' => self::of_class( new \ReflectionClass( $classname ), $context ),
+            'arity'       => 'n',
+            'field'       => $name,
+            'classname'   => $classname,
+            'converter'   => $custom_converter,
+            'location'    => 'foreign',
+            'link'        => $arguments[ 'ref' ],
+            'default'     => $settings[ 'default' ] ?? [],
+            'item_schema' => self::of_class( new \ReflectionClass( $classname ), $context ),
+        ];
+
+        return [ $name, $content ];
+    }
+
+    public static function of_object(\ReflectionProperty $property, \ReflectionAttribute $object, string $context) {
+        $arguments = $object->getArguments();
+
+        $classname = $arguments[ 'classname' ];
+        $settings = $arguments[ 'settings' ];
+        $name = $property->getName();
+        $custom_converter = $settings[ 'custom_converter' ] ?? null;
+
+        $content = [
+            'arity'       => '?',
+            'field'       => $name,
+            'classname'   => $classname,
+            'converter'   => $custom_converter,
+            'location'    => 'foreign',
+            'link'        => [],
+            'default'     => $settings[ 'default' ] ?? null,
+            'item_schema' => self::of_class( new \ReflectionClass( $classname ), $context ),
         ];
 
         return [ $name, $content ];
@@ -127,6 +153,21 @@ class TableSchema implements Schema {
                 [ $name, $content ] = self::of_array( $property, $array, $context );
                 $properties[ $name ] = $content;
             }
+
+            $objects = $property->getAttributes( MapObject::class );
+
+            foreach ( $objects as $object ) {
+                $arguments = $object->getArguments();
+
+                if ( $arguments[ 'context' ] !== $context ) {
+                    continue;
+                }
+
+                $settings = $arguments[ 'settings' ];
+
+                [ $name, $content ] = self::of_object( $property, $object, $context );
+                $properties[ $name ] = $content;
+            }
         }
 
         return new self( $source, new Properties( $properties ) );
@@ -152,12 +193,12 @@ class TableSchema implements Schema {
         $sources = [];
 
         foreach ( $far_sourced as $name => $property ) {
-            if ( !isset( $property[ 'classname' ] ) ) {
+            if ( ! isset( $property[ 'classname' ] ) ) {
                 continue;
             }
 
             $classname = $property[ 'classname' ];
-            if ( !isset( $sources[ $classname ] ) ) {
+            if ( ! isset( $sources[ $classname ] ) ) {
                 $sources[ $classname ] = [];
             }
 
@@ -204,6 +245,7 @@ class TableSchema implements Schema {
     }
 
     public function is_writeable(): bool {
-        return !$this->readonly;
+        return ! $this->readonly;
     }
+
 }

@@ -19,9 +19,10 @@
 use PHPUnit\Framework\TestCase;
 
 require_once 'Contact.php';
+require_once 'Address.php';
 require_once 'Person.php';
 
-use entphp\datatypes\ObjectDeserializer;
+use entphp\serde\ObjectDeserializer;
 
 /**
  * Description of FetchQueryTest

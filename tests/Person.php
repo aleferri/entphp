@@ -18,7 +18,10 @@
 
 use basin\attributes\MapPrimitive;
 use basin\attributes\MapArray;
+use basin\attributes\MapObject;
 use basin\attributes\MapSource;
+use basin\attributes\MapIdentity;
+use basin\concepts\Persistable;
 
 /**
  * Description of People
@@ -26,31 +29,59 @@ use basin\attributes\MapSource;
  * @author Alessio
  */
 #[MapSource(context: 'sql', source: 'people')]
-class Person {
+class Person implements Persistable {
+
+    use entphp\persistable\PersistableTrait;
 
     public function __construct(
-            #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
-            private int $person_id,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $first_name,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $last_name,
-            #[MapPrimitive(context: 'sql', kind: 'date', settings: [])]
-            private \DateTimeImmutable $born_at,
-            #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
-            private string $notes,
-            #[MapArray(context: 'sql', classname: 'Contact', ref: [ 'person_id' => 'person_id' ], settings: [ 'default' => [] ])]
-            private array $contacts,
+        #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
+        #[MapIdentity(context: 'sql', kind: 'single')]
+        private ?int $person_id,
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
+        private string $first_name,
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
+        private string $last_name,
+        #[MapPrimitive(context: 'sql', kind: 'date', settings: [])]
+        private \DateTimeImmutable $born_at,
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        private string $notes = '',
+        #[MapObject(context: 'sql', classname: 'Address', ref: [], settings: [])]
+        private ?Address $address = null,
+        #[MapArray(context: 'sql', classname: 'Contact', ref: [ 'person_id' => 'person_id' ],
+                   settings: [ 'default' => [] ])]
+        private array $contacts = [],
     ) {
 
     }
 
-    public function get_person_id(): int {
+    public function get_person_id(): ?int {
         return $this->person_id;
+    }
+
+    public function get_address(): ?Address {
+        return $this->address;
     }
 
     public function get_contacts(): array {
         return $this->contacts;
+    }
+
+    public function add_contact(Contact $contact): void {
+        $this->contacts[] = $contact;
+    }
+
+    public function remove_contact(Contact $drop): void {
+        $contacts = [];
+
+        foreach ( $this->contacts as $contact ) {
+            if ( $contact->get_id() !== 0 && $drop->get_id() === 0 ) {
+                $contacts[] = $contact;
+            }
+
+            if ( $contact->get_id() !== $drop->get_id() ) {
+
+            }
+        }
     }
 
     public function get_first_name(): string {
@@ -68,4 +99,5 @@ class Person {
     public function get_notes(): string {
         return $this->notes;
     }
+
 }

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-namespace entphp\datatypes;
+namespace entphp\serde;
 
 use basin\concepts\convert\SchemaDeserializer;
 use basin\concepts\Schema;
@@ -123,14 +123,17 @@ class ObjectDeserializer implements SchemaDeserializer {
         }
 
         if ( $converter === null ) {
-            $converter = new ObjectDeserializer( $info[ 'classname' ],
-                                                 $info[ 'item_schema' ] );
+            $converter = new ObjectDeserializer( $info[ 'classname' ], $info[ 'item_schema' ] );
         }
 
         if ( $info[ 'arity' ] === 'n' ) {
             return $converter->instance_all( $raw );
         } else {
-            return $converter->instance( $raw );
+            if ( $raw !== null ) {
+                return $converter->instance( $raw );
+            } else {
+                return null;
+            }
         }
     }
 

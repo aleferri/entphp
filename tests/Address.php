@@ -17,16 +17,22 @@
  */
 
 use basin\attributes\MapPrimitive;
+use basin\attributes\MapIdentity;
+use basin\attributes\MapSource;
 
 /**
  * Description of Address
  *
  * @author Alessio
  */
-class Address {
+#[MapSource(context: 'sql', source: 'addresses')]
+class Address implements \basin\concepts\Persistable {
+
+    use \entphp\persistable\PersistableTrait;
 
     public function __construct(
         #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
+        #[MapIdentity(context: 'sql', kind: 'single')]
         private ?int $id = null,
         #[MapPrimitive(context: 'sql', kind: 'string', settings: [])]
         private string $title = '',
@@ -51,7 +57,7 @@ class Address {
         #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'len' => 'longtext' ])]
         private string $notes = ''
     ) {
-        
+
     }
 
     public function get_id(): ?int {
