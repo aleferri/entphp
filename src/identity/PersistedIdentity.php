@@ -21,18 +21,18 @@ namespace entphp\identity;
 use basin\concepts\Identity;
 
 /**
- * Description of TransientIdentity
+ * Description of PersistedIdentity
  *
  * @author Alessio
  */
-class TransientIdentity implements Identity {
+class PersistedIdentity implements Identity {
 
     private $fields;
-    private $transients;
+    private $values;
 
-    public function __construct(array $fields, array $transients) {
+    public function __construct(array $fields, array $values) {
         $this->fields = $fields;
-        $this->transients = $transients;
+        $this->values = $values;
     }
 
     public function has_field(string $field) {
@@ -43,30 +43,10 @@ class TransientIdentity implements Identity {
         return $this->fields;
     }
 
-    public function replace_with_transient(string $field) {
-        return '__transient_' . $field;
-    }
-
-    public function fill_transients(array $data): array {
-        foreach ( $this->fields as $field ) {
-            if ( ! isset( $data[ $field ] ) ) {
-                $transient_field = '__transient_' . $field;
-                $data[ $transient_field ] = $this->transients[ $field ];
-            }
-        }
-        return $data;
-    }
-
     public function fill_as_fk(array $data, string $prefix): array {
         foreach ( $this->fields as $field ) {
             $key = $prefix . '_' . $field . '_fk';
-            $transient_key = '__transient_' . $key;
-            $data[ $key ] = $this->transients[ $field ];
-
-            if ( ! isset( $data[ '__transient_patches' ] ) ) {
-                $data[ '__transient_patches' ] = [];
-            }
-            $data[ '__transient_patches' ][ $transient_key ] = $key;
+            $data[ $key ] = $this->values[ $field ];
         }
         return $data;
     }

@@ -37,6 +37,10 @@ class EmptyIdentity implements \basin\concepts\Identity {
         return in_array( $field, $this->fields );
     }
 
+    public function fields(): array {
+        return $this->fields;
+    }
+
     public function fill_as_fk(array $data, string $prefix): array {
 
         foreach ( $this->fields as $field ) {

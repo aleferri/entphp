@@ -25,21 +25,13 @@ use basin\concepts\Identity;
  *
  * @author Alessio
  */
-interface IdentityFactory {
+interface IdentityTracker {
 
     /**
      * Get next identity
      * @return Identity
      */
-    public function provide_transient(Persistable $persistable): Identity;
-
-    /**
-     *
-     * @param Persistable $persistable
-     * @param Identity $identity
-     * @return array
-     */
-    public function patch_identity(Persistable $persistable, Identity $identity): array;
+    public function track_transient(?Persistable $persistable, string $classname = ''): Identity;
 
     /**
      * Patch transient data
@@ -49,10 +41,11 @@ interface IdentityFactory {
     public function patch_transients(array $data): array;
 
     /**
-     *
-     * @param string $classname
-     * @return Identity
+     * Register an id for a transient entity
+     * @param int $transient_id
+     * @param int $persisted_id
+     * @return void
      */
-    public function empty_identity(string $classname): Identity;
+    public function patch_id(int $transient_id, int $persisted_id): void;
 
 }

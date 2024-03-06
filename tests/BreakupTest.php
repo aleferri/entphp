@@ -84,7 +84,7 @@ class BreakupTest extends TestCase {
             }
         }
 
-        $id_factory = new entphp\identity\IdentityFactorySequential( 'sql' );
+        $id_factory = new entphp\identity\IdentityTrackerSequential( 'sql' );
 
         $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_factory );
         $breaked = $serializer->breakup_all( $people );
@@ -105,7 +105,7 @@ class BreakupTest extends TestCase {
 
         $people = [ $person, $second ];
 
-        $id_factory = new entphp\identity\IdentityFactorySequential( 'sql' );
+        $id_factory = new entphp\identity\IdentityTrackerSequential( 'sql' );
 
         $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_factory );
         $breaked = $serializer->breakup_all( $people );
@@ -129,19 +129,14 @@ class BreakupTest extends TestCase {
         $people = [ $person, $second ];
 
         $db_test = new entphp\drivers\TestDriver();
-        $id_factory = new entphp\identity\IdentityFactorySequential( 'sql' );
+        $id_tracker = new entphp\identity\IdentityTrackerSequential( 'sql' );
 
-        $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_factory );
+        $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_tracker );
         $breaked = $serializer->breakup_all( $people );
 
-        foreach ( $breaked as $source => $records ) {
-            foreach ( $records as &$record ) {
-                if ( isset( $record[ '__identity' ] ) && $record[ '__identity' ] instanceof \entphp\identity\TransientIdentity ) {
-                    $id = $db_test->next_key( $source );
-                }
-            }
-            unset( $record );
-        }
+        $pdo = $this->get_pdo_sqlite();
+        $store = new \entphp\store\SQLStore( $pdo, $id_tracker );
+        $store->store( $breaked );
     }
 
 }

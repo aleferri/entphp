@@ -27,18 +27,20 @@ use basin\attributes\MapIdentity;
  *
  * @author Alessio
  */
-class IdentityFactorySequential implements IdentityFactory {
+class IdentityTrackerSequential implements IdentityTracker {
 
     private $context;
     private $sequence;
     private $transaction;
     private $cache;
+    private $patch_later;
 
     public function __construct(string $context, int $sequence = 0, array $transaction = []) {
         $this->context = $context;
         $this->sequence = $sequence;
         $this->transaction = $transaction;
         $this->cache = [];
+        $this->patch_later = [];
     }
 
     private function cache_identity_info(string $classname) {
@@ -74,12 +76,8 @@ class IdentityFactorySequential implements IdentityFactory {
         return $this->sequence;
     }
 
-    public function patch(int $transient, int $id) {
-        $this->transaction[ $transient ] = $id;
-    }
-
-    public function patch_identity(Persistable $persistable, Identity $identity): array {
-
+    public function patch_id(int $transient_id, int $persisted_id) {
+        $this->transaction[ $transient_id ] = $persisted_id;
     }
 
     private function patch_transient_identity(array $data) {
@@ -119,27 +117,11 @@ class IdentityFactorySequential implements IdentityFactory {
         );
     }
 
-    public function provide_transient(Persistable $persistable): Identity {
-        $classname = \get_class( $persistable );
-
-        $identity_info = $this->cache_identity_info( $classname );
-
-        $fields = [];
-        $transients = [];
-
-        foreach ( $identity_info as $field_info ) {
-            $field = $field_info[ 'field' ]->getName();
-            $fields[] = $field;
-            $transients[ $field ] = $this->next();
+    public function track_transient(?Persistable $persistable, string $classname = ''): Identity {
+        if ( $classname === '' ) {
+            $classname = \get_class( $persistable );
         }
 
-        $identity = new TransientIdentity( $fields, $transients );
-        $persistable->__transient_identity( $identity );
-
-        return $identity;
-    }
-
-    public function empty_identity(string $classname): Identity {
         $identity_info = $this->cache_identity_info( $classname );
 
         $fields = [];
@@ -148,10 +130,16 @@ class IdentityFactorySequential implements IdentityFactory {
         foreach ( $identity_info as $field_info ) {
             $field = $field_info[ 'field' ]->getName();
             $fields[] = $field;
-            $values[ $field ] = null;
+            $values[ $field ] = $this->next();
         }
 
-        $identity = new EmptyIdentity( $fields, $values );
+        if ( $persistable !== null ) {
+            $identity = new TransientIdentity( $fields, $values );
+            $persistable->__transient_identity( $identity );
+            $this->patch_later[] = [ 'identity' => $identity, 'object' => $persistable ];
+        } else {
+            $identity = new EmptyIdentity( $fields, $values );
+        }
 
         return $identity;
     }

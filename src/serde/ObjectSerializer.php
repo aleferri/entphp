@@ -21,7 +21,7 @@ namespace entphp\serde;
 use basin\concepts\convert\Serializer;
 use basin\concepts\Schema;
 use basin\concepts\Persistable;
-use entphp\identity\IdentityFactory;
+use entphp\identity\IdentityTracker;
 use entphp\identity\TransientIdentity;
 
 /**
@@ -31,7 +31,7 @@ use entphp\identity\TransientIdentity;
  */
 class ObjectSerializer implements Serializer {
 
-    public static function of_class(string $classname, string $context, IdentityFactory $id_factory) {
+    public static function of_class(string $classname, string $context, IdentityTracker $id_factory) {
         $class = new \ReflectionClass( $classname );
         $schema = TableSchema::of_class( $class, $context );
 
@@ -68,7 +68,7 @@ class ObjectSerializer implements Serializer {
      */
     private $class;
 
-    public function __construct(string $classname, Schema $schema, IdentityFactory $id_factory, array $defaults = []) {
+    public function __construct(string $classname, Schema $schema, IdentityTracker $id_factory, array $defaults = []) {
         $this->classname = $classname;
         $this->schema = $schema;
         $this->id_factory = $id_factory;
@@ -96,7 +96,7 @@ class ObjectSerializer implements Serializer {
 
                 // Create a transient identity
                 if ( $transient_identity === null ) {
-                    $transient_identity = $this->id_factory->provide_transient( $object );
+                    $transient_identity = $this->id_factory->track_transient( $object );
                 }
 
                 $row = $transient_identity->fill_transients( $row );
@@ -104,7 +104,6 @@ class ObjectSerializer implements Serializer {
             }
 
             $row[ '__identity' ] = $identity;
-            $row[ '__object' ] = $object;
         }
 
         return $row;
@@ -150,7 +149,7 @@ class ObjectSerializer implements Serializer {
 
     private function link_to(?object $value, string $classname): \basin\concepts\Identity {
         if ( $value === null ) {
-            return $this->id_factory->empty_identity( $classname );
+            return $this->id_factory->track_transient( null, $classname );
         }
 
         if ( $value instanceof Persistable ) {
@@ -195,6 +194,9 @@ class ObjectSerializer implements Serializer {
             $property->setAccessible( true );
 
             $value = $property->getValue( $object );
+            if ( $value instanceof \DateTimeImmutable && $info[ 'kind' ] === 'date' ) {
+                $value = $value->format( 'Y-m-d' );
+            }
             $row[ $name ] = $value;
         }
 
