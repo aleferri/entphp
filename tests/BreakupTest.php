@@ -136,7 +136,9 @@ class BreakupTest extends TestCase {
 
         $pdo = $this->get_pdo_sqlite();
         $store = new \entphp\store\SQLStore( $pdo, $id_tracker );
-        $store->store( $breaked );
+        $leftovers = $store->store( $breaked );
+
+        $this->assertEquals( 0, count( $leftovers ) );
     }
 
 }
