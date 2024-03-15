@@ -76,11 +76,11 @@ class IdentityTrackerSequential implements IdentityTracker {
         return $this->sequence;
     }
 
-    public function patch_id(int $transient_id, int $persisted_id) {
+    public function patch_id(int $transient_id, int $persisted_id): void {
         $this->transaction[ $transient_id ] = $persisted_id;
     }
 
-    private function patch_transient_identity(array $data) {
+    private function patch_transient_identity(array $data): array {
         if ( ! isset( $data[ '__identity' ] ) ) {
             return $data;
         }
@@ -94,18 +94,30 @@ class IdentityTrackerSequential implements IdentityTracker {
         return $data;
     }
 
-    private function patch_transient_links(array $data) {
+    private function patch_transient_links(array $data): array {
         if ( ! isset( $data[ '__transient_patches' ] ) ) {
             return $data;
         }
 
         $patches = $data[ '__transient_patches' ];
+        $leftovers = [];
 
-        foreach ( $patches as $field ) {
+        foreach ( $patches as $key => $field ) {
             $transient_id = $data[ $field ];
-            $id = $this->transaction[ $transient_id ];
 
-            $data[ $field ] = $id;
+            if ( isset( $this->transaction[ $transient_id ] ) ) {
+                $id = $this->transaction[ $transient_id ];
+
+                $data[ $field ] = $id;
+            } else {
+                $leftovers[ $key ] = $field;
+            }
+        }
+
+        if ( count( $leftovers ) > 0 ) {
+            $data[ '__transient_patches' ] = $leftovers;
+        } else {
+            unset( $data[ '__transient_patches' ] );
         }
 
         return $data;

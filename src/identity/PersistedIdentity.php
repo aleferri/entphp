@@ -43,6 +43,16 @@ class PersistedIdentity implements Identity {
         return $this->fields;
     }
 
+    public function of(array $row): array {
+        $refs = [];
+
+        foreach ( $this->fields as $field ) {
+            $refs[] = $row[ $field ];
+        }
+
+        return $refs;
+    }
+
     public function fill_as_fk(array $data, string $prefix): array {
         foreach ( $this->fields as $field ) {
             $key = $prefix . '_' . $field . '_fk';

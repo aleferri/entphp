@@ -55,6 +55,34 @@ class SQLStore {
         return $query;
     }
 
+    private function make_update_query(string $table, array $fields, array $identity_fields): string {
+        $fields_quoted = array_map( function ($a) {
+            return "`{$a}` = ?";
+        }, $fields );
+
+        $fields_formatted = implode( ', ', $fields_quoted );
+
+        $identity_quoted = array_map( function ($a) {
+            return "`{$a}` = ?";
+        }, $identity_fields );
+
+        $identity_formatted = implode( ' AND ', $identity_quoted );
+
+        $query = "UPDATE {$table} SET {$fields_formatted} WHERE {$identity_formatted}";
+
+        return $query;
+    }
+
+    private function canonical_params(array $row, array $template): array {
+        $data = [];
+
+        foreach ( $template as $key => $value ) {
+            $data[] = $row[ $key ];
+        }
+
+        return $data;
+    }
+
     private function prepare_row(Identity $identity, array $row): array {
         unset( $row[ '__identity' ] );
         foreach ( $identity->fields() as $field ) {
@@ -84,13 +112,45 @@ class SQLStore {
             $identity = $row[ '__identity' ];
             $clean_row = $this->prepare_row( $row[ '__identity' ], $row );
             $st->execute( array_values( $clean_row ) );
+
             $id = $this->pdo->lastInsertId();
+
             foreach ( $identity->fields() as $field ) {
-                $this->id_tracker->patch_id( $row[ $field ], $id );
+                $transient_field = '__transient_' . $field;
+                $this->id_tracker->patch_id( $row[ $transient_field ], $id );
                 $clean_row[ $field ] = $id;
             }
 
             $results[] = $clean_row;
+        }
+
+        return $results;
+    }
+
+    private function execute_updates(array $updates, string $dest_table): array {
+        if ( count( $updates ) === 0 ) {
+            return [];
+        }
+
+        $identity = $updates[ 0 ][ '__identity' ];
+        $template = $this->prepare_row( $updates[ 0 ][ '__identity' ], $updates[ 0 ] );
+
+        $fields = array_keys( $template );
+
+        $query = $this->make_update_query( $dest_table, $fields, $identity->fields() );
+
+        $st = $this->pdo->prepare( $query );
+
+        $results = [];
+        foreach ( $updates as $row ) {
+            $identity = $row[ '__identity' ];
+            $refs = $identity->of( $row );
+
+            $params = array_merge( $this->canonical_params( $row, $template ), $refs );
+
+            $st->execute( $params );
+
+            $results[] = $row;
         }
 
         return $results;
@@ -101,7 +161,7 @@ class SQLStore {
         $persisted = [];
 
         foreach ( $rows_by_dest as $source => $records ) {
-            $later = [];
+            $try_fix = [];
 
             $fit_for_update = [];
             $fit_for_insert = [];
@@ -113,7 +173,7 @@ class SQLStore {
                 }
 
                 if ( isset( $record[ '__transient_patches' ] ) ) {
-                    $later[] = $record; // Record not yet ready
+                    $try_fix[] = $record; // Record not yet ready
                     continue;
                 }
 
@@ -128,9 +188,15 @@ class SQLStore {
             }
 
             $inserted_rows = $this->execute_inserts( $fit_for_insert, $source );
+            $updated_rows = $this->execute_updates( $fit_for_update, $source );
 
-            if ( count( $later ) > 0 ) {
-                $leftovers[ $source ] = $later;
+            $schedule_later = [];
+            foreach ( $try_fix as $record ) {
+                $schedule_later[] = $this->id_tracker->patch_transients( $record );
+            }
+
+            if ( count( $schedule_later ) > 0 ) {
+                $leftovers[ $source ] = $schedule_later;
             }
         }
 
@@ -138,9 +204,14 @@ class SQLStore {
     }
 
     public function store(array $rows_by_dest): array {
-        $this->schedule_round( $rows_by_dest );
+        $max_depth = 3;
 
-        return [];
+        while ( count( $rows_by_dest ) > 0 && $max_depth > 0 ) {
+            $rows_by_dest = $this->schedule_round( $rows_by_dest );
+            $max_depth --;
+        }
+
+        return $rows_by_dest;
     }
 
 }
