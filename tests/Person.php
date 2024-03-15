@@ -62,6 +62,12 @@ class Person implements Persistable {
         return $this->address;
     }
 
+    public function with_address(?Address $address): Person {
+        $person = clone $this;
+        $person->address = $address;
+        return $person;
+    }
+
     public function get_contacts(): array {
         return $this->contacts;
     }
@@ -88,8 +94,20 @@ class Person implements Persistable {
         return $this->first_name;
     }
 
+    public function with_first_name(string $firstname): Person {
+        $person = clone $this;
+        $person->first_name = $firstname;
+        return $person;
+    }
+
     public function get_last_name(): string {
         return $this->last_name;
+    }
+
+    public function with_last_name(string $lastname): Person {
+        $person = clone $this;
+        $person->last_name = $lastname;
+        return $person;
     }
 
     public function get_born_at(): \DateTimeImmutable {
@@ -98,6 +116,12 @@ class Person implements Persistable {
 
     public function get_notes(): string {
         return $this->notes;
+    }
+
+    public function with_notes(string $notes): Person {
+        $person = clone $this;
+        $person->notes = $notes;
+        return $person;
     }
 
 }
