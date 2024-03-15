@@ -211,6 +211,8 @@ class SQLStore {
             $max_depth --;
         }
 
+        $this->id_tracker->flush();
+
         return $rows_by_dest;
     }
 

@@ -156,4 +156,25 @@ class IdentityTrackerSequential implements IdentityTracker {
         return $identity;
     }
 
+    public function flush(): void {
+        foreach ( $this->patch_later as $record ) {
+            $transient = $record[ 'identity' ];
+            $object = $record[ 'object' ];
+
+            $fields = $transient->fields();
+            $values = $transient->values();
+
+            foreach ( $fields as $field ) {
+                $key = $values[ $field ];
+                $values[ $field ] = $this->transaction[ $key ];
+            }
+
+            $identity = new PersistedIdentity( $fields, $values );
+            $object->__identity( $identity );
+        }
+
+        $this->patch_later = [];
+        $this->transaction = [];
+    }
+
 }

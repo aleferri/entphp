@@ -43,24 +43,6 @@ class BreakupTest extends TestCase {
         return $pdo;
     }
 
-    private function execute_query($pdo, \entphp\query\SQLFetchQuery $query) {
-        $sql = $query->to_sql();
-
-        $st = $pdo->prepare( $sql );
-
-        $i = 1;
-        foreach ( $query->values() as $value ) {
-            $st->bindValue( $i, $value );
-
-            $i ++;
-        }
-
-        $st->execute();
-        $records = $st->fetchAll();
-
-        return $records;
-    }
-
     public function testBreakupPersisted() {
         $pdo = $this->get_pdo_sqlite();
 
@@ -128,7 +110,6 @@ class BreakupTest extends TestCase {
 
         $people = [ $person, $second ];
 
-        $db_test = new entphp\drivers\TestDriver();
         $id_tracker = new entphp\identity\IdentityTrackerSequential( 'sql' );
 
         $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_tracker );
@@ -139,6 +120,40 @@ class BreakupTest extends TestCase {
         $leftovers = $store->store( $breaked );
 
         $this->assertEquals( 0, count( $leftovers ) );
+    }
+
+    public function testBreakupMixed() {
+        $person = new Person( null, 'A0', 'B0', new \DateTimeImmutable() );
+        $person->add_contact( new Contact( null, 'home' ) );
+
+        $people = [ $person ];
+
+        $id_tracker = new entphp\identity\IdentityTrackerSequential( 'sql' );
+
+        $serializer = ObjectSerializer::of_class( Person::class, 'sql', $id_tracker );
+        $breaked = $serializer->breakup_all( $people );
+
+        $pdo = $this->get_pdo_sqlite();
+        $store = new \entphp\store\SQLStore( $pdo, $id_tracker );
+        $leftovers = $store->store( $breaked );
+
+        $this->assertEquals( 0, count( $leftovers ) );
+        $this->assertNotNull( $person->get_person_id() );
+
+        $id = $person->get_person_id();
+
+        $person_copy = $person
+            ->with_first_name( 'C1' )
+            ->with_notes( 'My Tutor' )
+            ->with_address( new Address( null, 'his house' ) );
+
+        $update = $serializer->breakup_all( [ $person_copy ] );
+        $leftovers_2 = $store->store( $update );
+
+        $this->assertEquals( 0, count( $leftovers_2 ) );
+        $this->assertNotNull( $person_copy->get_person_id() );
+        $this->assertNotNull( $person_copy->get_address()->get_id() );
+        $this->assertEquals( $id, $person_copy->get_person_id() );
     }
 
 }

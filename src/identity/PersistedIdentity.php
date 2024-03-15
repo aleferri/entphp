@@ -39,6 +39,10 @@ class PersistedIdentity implements Identity {
         return in_array( $field, $this->fields );
     }
 
+    public function values(): array {
+        return $this->values;
+    }
+
     public function fields(): array {
         return $this->fields;
     }

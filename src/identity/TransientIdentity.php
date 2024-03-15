@@ -43,6 +43,10 @@ class TransientIdentity implements Identity {
         return $this->fields;
     }
 
+    public function values(): array {
+        return $this->transients;
+    }
+
     public function replace_with_transient(string $field) {
         return '__transient_' . $field;
     }

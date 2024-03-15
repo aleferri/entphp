@@ -44,6 +44,11 @@ trait PersistableTrait {
         $old = $this->__identity;
         if ( $identity !== null ) {
             $this->__identity = $identity;
+
+            $values = $this->__identity->values();
+            foreach ( $this->__identity->fields() as $field ) {
+                $this->$field = $values[ $field ];
+            }
         }
 
         return $old;
