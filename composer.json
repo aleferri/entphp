@@ -25,7 +25,7 @@
         }
     ],
     "require": {
-        "alessio/basin": "v0.0.2"
+        "alessio/basin": "v0.0.3"
     },
     "require-dev": {
         "psalm/phar": "^4.7",

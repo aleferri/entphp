@@ -31,7 +31,7 @@ trait PersistableTrait {
     private $__identity = null;
     private $__transient_identity = null;
 
-    public function __transient_identity(?Identity $identity): ?Identity {
+    public function __transient_identity(?Identity $identity = null): ?Identity {
         $old = $this->__transient_identity;
         if ( $identity !== null ) {
             $this->__transient_identity = $identity;
@@ -40,7 +40,7 @@ trait PersistableTrait {
         return $old;
     }
 
-    public function __identity(?Identity $identity): ?Identity {
+    public function __identity(?Identity $identity = null): ?Identity {
         $old = $this->__identity;
         if ( $identity !== null ) {
             $this->__identity = $identity;
@@ -74,5 +74,4 @@ trait PersistableTrait {
 
         return $this === $compare;
     }
-
 }
