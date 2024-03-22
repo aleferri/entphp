@@ -52,6 +52,36 @@ function to_int_strict(mixed $raw): int {
     return $value;
 }
 
+function to_float(mixed $raw): float|null {
+    if ( is_float( $raw ) ) {
+        return intval( $raw );
+    }
+
+    if ( is_int( $raw ) ) {
+        return floatval( $raw );
+    }
+
+    if ( is_string( $raw ) && is_numeric( $raw ) ) {
+        return floatval( $raw );
+    }
+
+    if ( is_object( $raw ) && method_exists( $raw, 'to_float' ) ) {
+        return $raw->to_float();
+    }
+
+    return null;
+}
+
+function to_float_strict(mixed $raw): int {
+    $value = to_float( $raw );
+
+    if ( $value === null ) {
+        throw new \RuntimeException( $raw . ' is not a valid float' );
+    }
+
+    return $value;
+}
+
 function to_date(mixed $raw): \DateTimeImmutable|null {
     $date = $raw;
 

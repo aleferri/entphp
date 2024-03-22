@@ -22,10 +22,15 @@
         {
             "type": "git",
             "url": "https://github.com/aleferri/basin.git"
+        },
+        {
+            "type": "git",
+            "url": "https://github.com/aleferri/plog.git"
         }
     ],
     "require": {
-        "alessio/basin": "v0.0.3"
+        "alessio/basin": "v0.0.3",
+        "alessio/plog": "v0.0.1"
     },
     "require-dev": {
         "psalm/phar": "^4.7",

@@ -99,6 +99,14 @@ class ObjectDeserializer implements SchemaDeserializer {
             return \entphp\datatypes\to_int( $raw );
         }
 
+        if ( $kind === 'float' ) {
+            return \entphp\datatypes\to_int_strict( $raw );
+        }
+
+        if ( $kind === 'float|null' ) {
+            return \entphp\datatypes\to_float( $raw );
+        }
+
         if ( $kind === 'date' ) {
             return \entphp\datatypes\to_date_strict( $raw );
         }
@@ -167,5 +175,4 @@ class ObjectDeserializer implements SchemaDeserializer {
     public function schema(): Schema {
         return $this->schema;
     }
-
 }
