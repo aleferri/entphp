@@ -71,6 +71,18 @@ class SQLFetchNode {
         return $query;
     }
 
+    public function query_for_key(string $key, mixed $id): SQLFetchQueryBuilder {
+        $arguments = $this->source->getArguments();
+
+        $table = $arguments[ 'source' ];
+        $query = SQLFetchQueryBuilder::start()
+            ->from( $table, 'ent' )
+            ->select( 'ent.*' )
+            ->filter_by( 'per_row_' . $key, $key . ' = ?', $id );
+
+        return $query;
+    }
+
     public function schema(): Schema {
         return $this->schema;
     }

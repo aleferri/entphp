@@ -109,6 +109,21 @@ class ObjectSerializer implements Serializer {
         return $row;
     }
 
+    private function export_local_properties(array $row, $object, array $properties, \ReflectionClass $class): array {
+        foreach ( $properties as $name => $info ) {
+            $property = $class->getProperty( $name );
+            $property->setAccessible( true );
+
+            $value = $property->getValue( $object );
+            if ( $value instanceof \DateTimeImmutable && $info[ 'kind' ] === 'date' ) {
+                $value = $value->format( 'Y-m-d' );
+            }
+            $row[ $name ] = $value;
+        }
+
+        return $row;
+    }
+
     private function throw_missing_field(string $field, string $classname, string $identity) {
         throw new \RuntimeException( 'missing field ' . $field . ' of class ' . $classname . ' with ' . $identity );
     }
@@ -187,18 +202,9 @@ class ObjectSerializer implements Serializer {
 
         $source = $schema->root_source();
 
-        $row = $this->init_row( [], $link, $object );
+        $init = $this->init_row( [], $link, $object );
 
-        foreach ( $schema->local_sourced_properties() as $name => $info ) {
-            $property = $class->getProperty( $name );
-            $property->setAccessible( true );
-
-            $value = $property->getValue( $object );
-            if ( $value instanceof \DateTimeImmutable && $info[ 'kind' ] === 'date' ) {
-                $value = $value->format( 'Y-m-d' );
-            }
-            $row[ $name ] = $value;
-        }
+        $row = $this->export_local_properties( $init, $object, $schema->local_sourced_properties(), $class );
 
         foreach ( $schema->foreign_sourced_properties() as $name => $info ) {
             $property = $class->getProperty( $name );
