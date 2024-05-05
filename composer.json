@@ -29,7 +29,7 @@
         }
     ],
     "require": {
-        "alessio/basin": "v0.0.3",
+        "alessio/basin": "v0.0.4",
         "alessio/plog": "v0.0.1"
     },
     "require-dev": {

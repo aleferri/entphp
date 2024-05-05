@@ -18,7 +18,6 @@
 
 namespace entphp\identity;
 
-use basin\concepts\Persistable;
 use basin\concepts\Identity;
 use basin\attributes\MapIdentity;
 
@@ -34,13 +33,15 @@ class IdentityTrackerSequential implements IdentityTracker {
     private $transaction;
     private $cache;
     private $patch_later;
+    private $identities;
 
     public function __construct(string $context, int $sequence = 0, array $transaction = []) {
-        $this->context = $context;
-        $this->sequence = $sequence;
+        $this->context     = $context;
+        $this->sequence    = $sequence;
         $this->transaction = $transaction;
-        $this->cache = [];
+        $this->cache       = [];
         $this->patch_later = [];
+        $this->identities  = [];
     }
 
     private function cache_identity_info(string $classname) {
@@ -62,7 +63,7 @@ class IdentityTrackerSequential implements IdentityTracker {
                     continue;
                 }
 
-                $settings = $arguments[ 'settings' ] ?? [];
+                $settings        = $arguments[ 'settings' ] ?? [];
                 $identity_info[] = [ 'settings' => $settings, 'field' => $property ];
             }
         }
@@ -99,7 +100,7 @@ class IdentityTrackerSequential implements IdentityTracker {
             return $data;
         }
 
-        $patches = $data[ '__transient_patches' ];
+        $patches   = $data[ '__transient_patches' ];
         $leftovers = [];
 
         foreach ( $patches as $key => $field ) {
@@ -129,7 +130,7 @@ class IdentityTrackerSequential implements IdentityTracker {
         );
     }
 
-    public function track_transient(?Persistable $persistable, string $classname = ''): Identity {
+    public function track_transient(?object $persistable, string $classname = ''): Identity {
         if ( $classname === '' ) {
             $classname = \get_class( $persistable );
         }
@@ -140,15 +141,16 @@ class IdentityTrackerSequential implements IdentityTracker {
         $values = [];
 
         foreach ( $identity_info as $field_info ) {
-            $field = $field_info[ 'field' ]->getName();
-            $fields[] = $field;
+            $field            = $field_info[ 'field' ]->getName();
+            $fields[]         = $field;
             $values[ $field ] = $this->next();
         }
 
         if ( $persistable !== null ) {
-            $identity = new TransientIdentity( $fields, $values );
-            $persistable->__transient_identity( $identity );
-            $this->patch_later[] = [ 'identity' => $identity, 'object' => $persistable ];
+            $identity                       = new TransientIdentity( $fields, $values );
+            $object_id                      = \spl_object_id( $persistable );
+            $this->identities[ $object_id ] = $identity;
+            $this->patch_later[]            = [ 'identity' => $identity, 'object' => $persistable ];
         } else {
             $identity = new EmptyIdentity( $fields, $values );
         }
@@ -156,23 +158,66 @@ class IdentityTrackerSequential implements IdentityTracker {
         return $identity;
     }
 
+    public function identity_of(object $object): ?Identity {
+        $object_id = \spl_object_id( $object );
+
+        if ( isset( $this->identities[ $object_id ] ) ) {
+            return $this->identities[ $object_id ];
+        }
+
+        $identity_info = $this->cache_identity_info( get_class( $object ) );
+
+        $fields = [];
+        $values = [];
+
+        foreach ( $identity_info as $field_info ) {
+            $prop     = $field_info[ 'field' ];
+            $prop->setAccessible( true );
+            $field    = $prop->getName();
+            $fields[] = $field;
+            $value    = $prop->getValue( $object );
+            if ( $value !== null ) {
+                $values[ $field ] = $value;
+            } else {
+                return null;
+            }
+        }
+
+        $identity                       = new PersistedIdentity( $fields, $values );
+        $this->identities[ $object_id ] = $identity;
+
+        return $identity;
+    }
+
+    private function set_identity_fields(object $object, Identity $identity) {
+        $values = $identity->values();
+        $props  = $this->cache_identity_info( get_class( $object ) );
+
+        foreach ( $props as $info ) {
+            $prop = $info[ 'field' ];
+            $prop->setAccessible( true );
+            $prop->setValue( $object, $values[ $prop->getName() ] );
+        }
+    }
+
     public function flush(): void {
         foreach ( $this->patch_later as $record ) {
             $transient = $record[ 'identity' ];
-            $object = $record[ 'object' ];
+            $object    = $record[ 'object' ];
 
             $fields = $transient->fields();
             $values = $transient->values();
 
             foreach ( $fields as $field ) {
-                $key = $values[ $field ];
+                $key              = $values[ $field ];
                 $values[ $field ] = $this->transaction[ $key ];
             }
 
             $identity = new PersistedIdentity( $fields, $values );
-            $object->__identity( $identity );
+            $this->set_identity_fields( $object, $identity );
         }
 
+        $this->identities  = [];
         $this->patch_later = [];
         $this->transaction = [];
     }

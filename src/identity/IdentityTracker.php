@@ -31,7 +31,7 @@ interface IdentityTracker {
      * Get next identity
      * @return Identity
      */
-    public function track_transient(?Persistable $persistable, string $classname = ''): Identity;
+    public function track_transient(?object $object, string $classname = ''): Identity;
 
     /**
      * Patch transient data

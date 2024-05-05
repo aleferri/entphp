@@ -26,9 +26,7 @@ use basin\attributes\MapIdentity;
  * @author Alessio
  */
 #[MapSource(context: 'sql', source: 'contacts')]
-class Contact implements \basin\concepts\Persistable {
-
-    use \entphp\persistable\PersistableTrait;
+class Contact {
 
     public function __construct(
         #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]

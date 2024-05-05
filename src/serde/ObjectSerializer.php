@@ -20,7 +20,6 @@ namespace entphp\serde;
 
 use basin\concepts\convert\Serializer;
 use basin\concepts\Schema;
-use basin\concepts\Persistable;
 use entphp\identity\IdentityTracker;
 use entphp\identity\TransientIdentity;
 
@@ -32,7 +31,7 @@ use entphp\identity\TransientIdentity;
 class ObjectSerializer implements Serializer {
 
     public static function of_class(string $classname, string $context, IdentityTracker $id_factory) {
-        $class = new \ReflectionClass( $classname );
+        $class  = new \ReflectionClass( $classname );
         $schema = TableSchema::of_class( $class, $context );
 
         return new self( $classname, $schema, $id_factory );
@@ -69,11 +68,11 @@ class ObjectSerializer implements Serializer {
     private $class;
 
     public function __construct(string $classname, Schema $schema, IdentityTracker $id_factory, array $defaults = []) {
-        $this->classname = $classname;
-        $this->schema = $schema;
+        $this->classname  = $classname;
+        $this->schema     = $schema;
         $this->id_factory = $id_factory;
-        $this->defaults = $defaults;
-        $this->class = new \ReflectionClass( $classname );
+        $this->defaults   = $defaults;
+        $this->class      = new \ReflectionClass( $classname );
     }
 
     private function init_row(array $defaults, array $link, ?object $object): array {
@@ -87,24 +86,18 @@ class ObjectSerializer implements Serializer {
             $row[ $handle ] = $value;
         }
 
-        if ( $object instanceof Persistable ) {
-            $identity = $object->__identity( null );
+        $identity = $this->id_factory->identity_of( $object );
 
-            // Try use the transient identity
-            if ( $identity === null ) {
-                $transient_identity = $object->__transient_identity( null );
-
-                // Create a transient identity
-                if ( $transient_identity === null ) {
-                    $transient_identity = $this->id_factory->track_transient( $object );
-                }
-
-                $row = $transient_identity->fill_transients( $row );
-                $identity = $transient_identity;
-            }
-
-            $row[ '__identity' ] = $identity;
+        // Try create a transient identity
+        if ( $identity === null ) {
+            $identity = $this->id_factory->track_transient( $object );
         }
+
+        if ( $identity instanceof TransientIdentity ) {
+            $row = $identity->fill_transients( $row );
+        }
+
+        $row[ '__identity' ] = $identity;
 
         return $row;
     }
@@ -167,12 +160,9 @@ class ObjectSerializer implements Serializer {
             return $this->id_factory->track_transient( null, $classname );
         }
 
-        if ( $value instanceof Persistable ) {
-            if ( $value->__identity( null ) !== null ) {
-                return $value->__identity( null );
-            } else {
-                return $value->__transient_identity( null );
-            }
+        $identity = $this->id_factory->identity_of( $value );
+        if ( $identity !== null ) {
+            return $identity;
         }
 
         throw new \RuntimeException( 'cannot get an identity for the relation' );
@@ -215,12 +205,12 @@ class ObjectSerializer implements Serializer {
             $link_spec = $info[ 'link' ];
 
             $child_schema = $info[ 'item_schema' ];
-            $child_class = new \ReflectionClass( $info[ 'classname' ] );
+            $child_class  = new \ReflectionClass( $info[ 'classname' ] );
             if ( $info[ 'arity' ] === 'n' ) {
                 $link = $this->link_from( $row, $link_spec, $class->name );
                 $data = $this->recursive_breakup_array( $data, $child_schema, $child_class, $value, $link );
             } else {
-                $data = $this->recursive_breakup( $data, $child_schema, $child_class, $value, [] );
+                $data          = $this->recursive_breakup( $data, $child_schema, $child_class, $value, [] );
                 $link_identity = $this->link_to( $value, $info[ 'classname' ] );
 
                 $row = $link_identity->fill_as_fk( $row, $name );

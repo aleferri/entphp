@@ -29,9 +29,7 @@ use basin\concepts\Persistable;
  * @author Alessio
  */
 #[MapSource(context: 'sql', source: 'people')]
-class Person implements Persistable {
-
-    use entphp\persistable\PersistableTrait;
+class Person {
 
     public function __construct(
         #[MapPrimitive(context: 'sql', kind: 'int|null', settings: [])]
@@ -48,7 +46,7 @@ class Person implements Persistable {
         #[MapObject(context: 'sql', classname: 'Address', ref: [], settings: [])]
         private ?Address $address = null,
         #[MapArray(context: 'sql', classname: 'Contact', ref: [ 'person_id' => 'person_id' ],
-                   settings: [ 'default' => [] ])]
+                settings: [ 'default' => [] ])]
         private array $contacts = [],
     ) {
 
@@ -63,7 +61,7 @@ class Person implements Persistable {
     }
 
     public function with_address(?Address $address): Person {
-        $person = clone $this;
+        $person          = clone $this;
         $person->address = $address;
         return $person;
     }
@@ -95,7 +93,7 @@ class Person implements Persistable {
     }
 
     public function with_first_name(string $firstname): Person {
-        $person = clone $this;
+        $person             = clone $this;
         $person->first_name = $firstname;
         return $person;
     }
@@ -105,7 +103,7 @@ class Person implements Persistable {
     }
 
     public function with_last_name(string $lastname): Person {
-        $person = clone $this;
+        $person            = clone $this;
         $person->last_name = $lastname;
         return $person;
     }
@@ -119,7 +117,7 @@ class Person implements Persistable {
     }
 
     public function with_notes(string $notes): Person {
-        $person = clone $this;
+        $person        = clone $this;
         $person->notes = $notes;
         return $person;
     }
