@@ -29,7 +29,7 @@ use basin\concepts\Schema;
 class ObjectDeserializer implements SchemaDeserializer {
 
     public static function of_class(string $classname, string $context, array $defaults = []) {
-        $class = new \ReflectionClass( $classname );
+        $class  = new \ReflectionClass( $classname );
         $schema = TableSchema::of_class( $class, $context );
 
         return new self( $classname, $schema, $defaults );
@@ -59,11 +59,40 @@ class ObjectDeserializer implements SchemaDeserializer {
      */
     private $class;
 
+    /**
+     *
+     * @var array<string: callable>
+     */
+    private $converters;
+
     public function __construct(string $classname, Schema $schema, array $defaults = []) {
-        $this->classname = $classname;
-        $this->schema = $schema;
-        $this->defaults = $defaults;
-        $this->class = new \ReflectionClass( $classname );
+        $this->classname  = $classname;
+        $this->schema     = $schema;
+        $this->defaults   = $defaults;
+        $this->class      = new \ReflectionClass( $classname );
+        $this->converters = [
+            'string'       => '\entphp\datatypes\identity',
+            'int'          => '\entphp\datatypes\to_int_strict',
+            'int|null'     => '\entphp\datatypes\to_int',
+            'float'        => '\entphp\datatypes\to_float_strict',
+            'float|null'   => '\entphp\datatypes\to_float',
+            'decimal'      => '\entphp\datatypes\to_decimal',
+            'decimal|null' => '\entphp\datatypes\to_decimal_strict',
+            'date'         => '\entphp\datatypes\to_date_strict',
+            'date|null'    => '\entphp\datatypes\to_date',
+            'time'         => '\entphp\datatypes\to_time_strict',
+            'time|null'    => '\entphp\datatypes\to_time',
+        ];
+    }
+
+    public function provide(string $key, callable $converter): void {
+        $this->converters[ $key ] = $converter;
+    }
+
+    public function provide_all(string $converters): void {
+        foreach ( $converters as $key => $converter ) {
+            $this->converters[ $key ] = $converter;
+        }
     }
 
     private function raw_of(array $info, array $data): mixed {
@@ -87,32 +116,8 @@ class ObjectDeserializer implements SchemaDeserializer {
             return $raw;
         }
 
-        if ( $kind === 'string' ) {
-            return \entphp\datatypes\identity( $raw );
-        }
-
-        if ( $kind === 'int' ) {
-            return \entphp\datatypes\to_int_strict( $raw );
-        }
-
-        if ( $kind === 'int|null' ) {
-            return \entphp\datatypes\to_int( $raw );
-        }
-
-        if ( $kind === 'float' ) {
-            return \entphp\datatypes\to_int_strict( $raw );
-        }
-
-        if ( $kind === 'float|null' ) {
-            return \entphp\datatypes\to_float( $raw );
-        }
-
-        if ( $kind === 'date' ) {
-            return \entphp\datatypes\to_date_strict( $raw );
-        }
-
-        if ( $kind === 'date|null' ) {
-            return \entphp\datatypes\to_date( $raw );
+        if ( isset( $this->converters[ $kind ] ) ) {
+            return $this->converters[ $kind ]( $raw, $info, $data );
         }
 
         throw new \RuntimeException( 'unexpected kind' );
@@ -120,7 +125,7 @@ class ObjectDeserializer implements SchemaDeserializer {
 
     private function value_of(array $info, array $data): mixed {
         $converter = $info[ 'converter' ] ?? null;
-        $raw = $this->raw_of( $info, $data );
+        $raw       = $this->raw_of( $info, $data );
 
         if ( $converter === null && isset( $info[ 'kind' ] ) ) {
             return $this->parse_of_kind( $info, $data, $raw );
@@ -175,4 +180,5 @@ class ObjectDeserializer implements SchemaDeserializer {
     public function schema(): Schema {
         return $this->schema;
     }
+
 }

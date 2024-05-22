@@ -108,3 +108,50 @@ function to_date_strict(mixed $raw): \DateTimeImmutable {
 
     return $value;
 }
+
+function to_time(mixed $raw): \DateTimeImmutable|null {
+    $time = $raw;
+
+    if ( $raw === null ) {
+        return null;
+    }
+
+    if ( str_contains( $time, 'T' ) ) {
+        [ $date, $time ] = explode( 'T', $date );
+        unset( $date );
+    }
+
+    $time_obj = new \DateTimeImmutable( $time );
+
+    return $time_obj;
+}
+
+function to_time_strict(mixed $raw): \DateTimeImmutable {
+    $value = to_time( $raw );
+
+    if ( $value === null ) {
+        throw new \RuntimeException( $raw . ' is not a valid time' );
+    }
+
+    return $value;
+}
+
+function to_decimal(mixed $raw, array $info): ?Decimal {
+    if ( $raw === null ) {
+        return null;
+    }
+
+    $str   = ( string ) $raw;
+    $scale = $info[ 'settings' ][ 'scale' ] ?? 4;
+    return new Decimal( $str, $scale );
+}
+
+function to_decimal_strict(mixed $raw, array $info): ?Decimal {
+    $decimal = to_decimal( $raw, $info );
+
+    if ( $decimal === null ) {
+        throw new \RuntimeException( $raw . ' is not a valid decimal' );
+    }
+
+    return $decimal;
+}
