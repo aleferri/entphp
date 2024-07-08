@@ -67,13 +67,10 @@ class SQLFetchPlanner implements LoggerAware {
         return $records;
     }
 
-    public function find(string $classname): array {
-        if ( !$this->metadata->has( $classname ) ) {
-            $this->metadata->visit( $classname );
-            $this->net[ $classname ] = $this->metadata->foreigns_of( $classname );
-        }
+    public function find(FetchQuery $query): array {
+        $records = $this->execute_query( $this->executor, $query );
 
-        return $this->metadata[ $classname ];
+        return $records;
     }
 
     public function fetch_all(string $classname, SQLFetchQuery $query, ?Deserializer $deserializer = null): array {

@@ -54,6 +54,27 @@ class TableSchema implements Schema {
         return $source;
     }
 
+    public static function identity_of(\ReflectionClass $class, string $context): array {
+        $identity_info = [];
+
+        foreach ( $class->getProperties() as $property ) {
+            $identity_fields = $property->getAttributes( MapIdentity::class );
+
+            foreach ( $identity_fields as $field ) {
+                $arguments = $field->getArguments();
+
+                if ( $arguments[ 'context' ] !== $context ) {
+                    continue;
+                }
+
+                $settings = $arguments[ 'settings' ] ?? [];
+                $identity_info[] = [ 'settings' => $settings, 'field' => $property ];
+            }
+        }
+
+        return $identity_info;
+    }
+
     public static function of_primitive(\ReflectionProperty $property, \ReflectionAttribute $primitive) {
         $arguments = $primitive->getArguments();
 

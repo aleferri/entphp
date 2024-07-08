@@ -39,10 +39,11 @@ class MetadataStore {
         $class = new \ReflectionClass( $classname );
 
         $source = TableSchema::source_of( $class, $this->context );
-        $schema = TableSchema::of_class( $class, 'sql' );
+        $schema = TableSchema::of_class( $class, $this->context );
+        $identity_info = TableSchema::identity_of( $class, $this->context );
 
         // First register this to prevent recursion
-        $this->metadata[ $classname ] = [ $source, $schema ];
+        $this->metadata[ $classname ] = [ $source, $schema, $identity_info ];
 
         $patchset = [];
 
@@ -62,7 +63,7 @@ class MetadataStore {
 
     public function query_for(string $classname, array $values): SQLFetchQueryBuilder {
         $this->visit( $classname );
-        [ $source, $schema ] = $this->metadata[ $classname ];
+        [ $source, $schema, $identity_info ] = $this->metadata[ $classname ];
 
         $table = $source;
         $query = SQLFetchQueryBuilder::start()
@@ -78,13 +79,25 @@ class MetadataStore {
 
     public function query_for_key(string $classname, string $key, mixed $id): SQLFetchQueryBuilder {
         $this->visit( $classname );
-        [ $source, $schema ] = $this->metadata[ $classname ];
+        [ $source, $schema, $identity_info ] = $this->metadata[ $classname ];
 
         $table = $source;
         $query = SQLFetchQueryBuilder::start()
                 ->from( $table, 'ent' )
                 ->select( 'ent.*' )
                 ->filter_by( 'per_row_' . $key, $key . ' = ?', $id );
+
+        return $query;
+    }
+
+    public function start_query(string $classname): SQLFetchQueryBuilder {
+        $this->visit( $classname );
+        [ $source, $schema, $identity_info ] = $this->metadata[ $classname ];
+
+        $table = $source;
+        $query = SQLFetchQueryBuilder::start()
+                ->from( $table, 'ent' )
+                ->select( 'ent.*' );
 
         return $query;
     }
@@ -98,14 +111,23 @@ class MetadataStore {
     }
 
     public function foreigns_of(string $classname): array {
-        [ $source, $schema ] = $this->metadata[ $classname ];
+        [ $source, $schema, $identity_info ] = $this->metadata[ $classname ];
 
         return $schema->foreign_sourced_properties();
     }
 
     public function schema_of(string $classname): Schema {
-        [ $source, $schema ] = $this->metadata[ $classname ];
+        [ $source, $schema, $identity_info ] = $this->metadata[ $classname ];
 
         return $schema;
+    }
+
+    public function first_key_of(string $classname): array|null {
+        [ $source, $schema, $identity_info ] = $this->metadata[ $classname ];
+        if ( count( $identity_info ) === 0 ) {
+            return null;
+        }
+
+        return $identity_info[ 0 ];
     }
 }

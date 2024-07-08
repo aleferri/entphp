@@ -22,6 +22,7 @@ use basin\concepts\query\FetchQueryBuilder;
 use basin\concepts\query\FetchQuery;
 use basin\concepts\query\Filters;
 use basin\concepts\Repository;
+use entphp\meta\MetadataStore;
 use entphp\query\SQLFetchQueryBuilder;
 use entphp\query\SQLFetchPlanner;
 use entphp\identity\IdentityTrackerSequential;
@@ -34,10 +35,12 @@ use entphp\identity\IdentityTrackerSequential;
 class Entities implements Repository {
 
     private $planner;
+    private $metadata;
     private $id_tracker;
 
     public function __construct(\PDO $pdo) {
-        $this->planner = new SQLFetchPlanner( $pdo );
+        $this->metadata = new MetadataStore();
+        $this->planner = new SQLFetchPlanner( $pdo, $this->metadata );
         $this->id_tracker = new IdentityTrackerSequential( 'sql' );
     }
 
@@ -47,28 +50,64 @@ class Entities implements Repository {
         }
 
         if ( is_string( $fields ) ) {
-            $builder = $this->node( $fields )->query_for_key();
+            $classname = $fields;
+            $info = $this->metadata->first_key_of( $classname );
+            $key = $info[ 'field' ];
+            $builder = $this->metadata->query_for_key( $classname, $key, $id );
+        } else {
+            throw new \RuntimeException( 'Not supported yet' );
         }
-    }
 
-    public function node(string $classname): SQLFetchNode {
-        return $this->planner->find( $classname );
+        $records = $this->planner->fetch_all( $classname, $builder->into_query() );
+        return $records[ 0 ] ?? null;
     }
 
     public function find_all(string|array $fields, Filters $filters, ?\basin\concepts\query\Order $order_by): array {
+        if ( is_string( $fields ) ) {
+            $classname = $fields;
+            $builder = $this->metadata->start_query( $classname );
+        } else {
+            throw new \RuntimeException( 'Not supported yet' );
+        }
 
+        $order_fields = $order_by->fields(); // TODO lower
+
+        $filters->apply_to( $builder ); // TODO lower
+        $builder->order_by( ...$order_fields ); // TODO lower
+
+        return $this->planner->fetch_all( $classname, $builder->into_query() );
     }
 
     public function find_page(string|array $fields, Filters $filters, \basin\concepts\query\Page $page): array {
+        if ( is_string( $fields ) ) {
+            $classname = $fields;
+            $builder = $this->metadata->start_query( $classname );
+        } else {
+            throw new \RuntimeException( 'Not supported yet' );
+        }
 
+        $filters->apply_to( $builder ); // TODO lower
+        $page->apply_to( $builder ); // TODO lower
+
+        return $this->planner->fetch_all( $classname, $builder->into_query() );
     }
 
     public function find_next_batch(string|array $fields, Filters $filters, \basin\concepts\query\Cursor $cursor): array {
+        if ( is_string( $fields ) ) {
+            $classname = $fields;
+            $builder = $this->metadata->start_query( $classname );
+        } else {
+            throw new \RuntimeException( 'Not supported yet' );
+        }
 
+        $filters->apply_to( $builder ); // TODO lower
+        $cursor->apply_to( $builder ); // TODO lower
+
+        return $this->planner->fetch_all( $classname, $builder->into_query() );
     }
 
     public function find_query(FetchQuery $query): array {
-
+        return $this->planner->find( $query );
     }
 
     public function store(object|array $data): object|array {
@@ -88,5 +127,4 @@ class Entities implements Repository {
     public function drop(object|array $data, int $policy = 1): bool {
 
     }
-
 }
