@@ -23,6 +23,7 @@ use plog\Logger;
 use plog\LoggerAware;
 use plog\NullLogger;
 use entphp\serde\ObjectDeserializer;
+use entphp\meta\MetadataStore;
 
 /**
  * Description of SQLFetchPlanner
@@ -35,12 +36,17 @@ class SQLFetchPlanner implements LoggerAware {
     private $net;
     private $executor;
     private $logger;
+    private $metadata;
 
-    public function __construct(\PDO $pdo) {
+    public function __construct(\PDO $pdo, ?MetadataStore $metadata = null) {
         $this->definitions = [];
         $this->net = [];
         $this->executor = $pdo;
         $this->logger = new NullLogger();
+        $this->metadata = $metadata;
+        if ( $this->metadata === null ) {
+            $this->metadata = new MetadataStore();
+        }
     }
 
     private function execute_query($pdo, SQLFetchQuery $query) {
@@ -52,7 +58,7 @@ class SQLFetchPlanner implements LoggerAware {
         foreach ( $query->values() as $value ) {
             $st->bindValue( $i, $value );
 
-            $i ++;
+            $i++;
         }
 
         $st->execute();
@@ -61,21 +67,19 @@ class SQLFetchPlanner implements LoggerAware {
         return $records;
     }
 
-    public function find(string $classname): SQLFetchNode {
-        if ( ! isset( $this->definitions[ $classname ] ) ) {
-            $node = SQLFetchNode::of_class( $classname );
-            $this->definitions[ $classname ] = $node;
-            $this->net[ $classname ] = $node->schema()->foreign_sourced_properties();
+    public function find(string $classname): array {
+        if ( !$this->metadata->has( $classname ) ) {
+            $this->metadata->visit( $classname );
+            $this->net[ $classname ] = $this->metadata->foreigns_of( $classname );
         }
 
-        return $this->definitions[ $classname ];
+        return $this->metadata[ $classname ];
     }
 
     public function fetch_all(string $classname, SQLFetchQuery $query, ?Deserializer $deserializer = null): array {
-        if ( ! isset( $this->definitions[ $classname ] ) ) {
-            $node = SQLFetchNode::of_class( $classname );
-            $this->definitions[ $classname ] = $node;
-            $this->net[ $classname ] = $node->schema()->foreign_sourced_properties();
+        if ( !$this->metadata->has( $classname ) ) {
+            $this->metadata->visit( $classname );
+            $this->net[ $classname ] = $this->metadata->foreigns_of( $classname );
         }
 
         $records = $this->execute_query( $this->executor, $query );
@@ -85,8 +89,7 @@ class SQLFetchPlanner implements LoggerAware {
         }
 
         if ( $deserializer === null ) {
-            $schema = $this->definitions[ $classname ]->schema();
-            $deserializer = new ObjectDeserializer( $classname, $schema );
+            $deserializer = new ObjectDeserializer( $classname, $this->metadata );
         }
 
         return $deserializer->instance_all( $records );
@@ -150,7 +153,7 @@ class SQLFetchPlanner implements LoggerAware {
             $records[ $i ][ $key ] = $default;
 
             $indexes[ $row_key ] = $i;
-            $i ++;
+            $i++;
         }
 
         return [ $records, $values, $indexes, $indexed_by ];
@@ -160,19 +163,18 @@ class SQLFetchPlanner implements LoggerAware {
         $classname = $derived[ 'classname' ];
         $source_name = $classname;
 
-        if ( ! isset( $this->definitions[ $source_name ] ) ) {
-            $this->definitions[ $source_name ] = SQLFetchNode::of_class( $classname, $derived[ 'converter' ] ?? null );
+        if ( !$this->metadata->has( $source_name ) ) {
+            $this->metadata->visit( $source_name );
+            $this->net[ $classname ] = $this->metadata->foreigns_of( $classname );
         }
 
         $field = $derived[ 'field' ];
 
         [ $records, $values, $rows_indexes, $row_indexed_by ] = $this->build_index_for_key(
-            $field, $derived[ 'link' ], $records, $derived[ 'default' ] ?? null
+                $field, $derived[ 'link' ], $records, $derived[ 'default' ] ?? null
         );
 
-        $node = $this->definitions[ $classname ];
-
-        $query = $node->query_for( $values )->into_query();
+        $query = $this->metadata->query_for( $source_name, $values )->into_query();
 
         $data = $this->execute_query( $this->executor, $query );
 
@@ -198,5 +200,4 @@ class SQLFetchPlanner implements LoggerAware {
     public function set_logger(Logger $logger) {
         $this->logger = $logger;
     }
-
 }

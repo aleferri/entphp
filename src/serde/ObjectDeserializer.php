@@ -20,6 +20,7 @@ namespace entphp\serde;
 
 use basin\concepts\convert\SchemaDeserializer;
 use basin\concepts\Schema;
+use entphp\meta\MetadataStore;
 
 /**
  * Description of TypeBuilder
@@ -29,10 +30,10 @@ use basin\concepts\Schema;
 class ObjectDeserializer implements SchemaDeserializer {
 
     public static function of_class(string $classname, string $context, array $defaults = []) {
-        $class  = new \ReflectionClass( $classname );
-        $schema = TableSchema::of_class( $class, $context );
+        $metadata = new MetadataStore( $context );
+        $metadata->visit( $classname );
 
-        return new self( $classname, $schema, $defaults );
+        return new self( $classname, $metadata, $defaults );
     }
 
     /**
@@ -43,9 +44,9 @@ class ObjectDeserializer implements SchemaDeserializer {
 
     /**
      *
-     * @var Schema
+     * @var MetadataStore
      */
-    private $schema;
+    private $metadata;
 
     /**
      *
@@ -65,23 +66,23 @@ class ObjectDeserializer implements SchemaDeserializer {
      */
     private $converters;
 
-    public function __construct(string $classname, Schema $schema, array $defaults = []) {
-        $this->classname  = $classname;
-        $this->schema     = $schema;
-        $this->defaults   = $defaults;
-        $this->class      = new \ReflectionClass( $classname );
+    public function __construct(string $classname, MetadataStore $metadata, array $defaults = []) {
+        $this->classname = $classname;
+        $this->metadata = $metadata;
+        $this->defaults = $defaults;
+        $this->class = new \ReflectionClass( $classname );
         $this->converters = [
-            'string'       => '\entphp\datatypes\identity',
-            'int'          => '\entphp\datatypes\to_int_strict',
-            'int|null'     => '\entphp\datatypes\to_int',
-            'float'        => '\entphp\datatypes\to_float_strict',
-            'float|null'   => '\entphp\datatypes\to_float',
-            'decimal'      => '\entphp\datatypes\to_decimal',
-            'decimal|null' => '\entphp\datatypes\to_decimal_strict',
-            'date'         => '\entphp\datatypes\to_date_strict',
-            'date|null'    => '\entphp\datatypes\to_date',
-            'time'         => '\entphp\datatypes\to_time_strict',
-            'time|null'    => '\entphp\datatypes\to_time',
+                'string'       => '\entphp\datatypes\identity',
+                'int'          => '\entphp\datatypes\to_int_strict',
+                'int|null'     => '\entphp\datatypes\to_int',
+                'float'        => '\entphp\datatypes\to_float_strict',
+                'float|null'   => '\entphp\datatypes\to_float',
+                'decimal'      => '\entphp\datatypes\to_decimal',
+                'decimal|null' => '\entphp\datatypes\to_decimal_strict',
+                'date'         => '\entphp\datatypes\to_date_strict',
+                'date|null'    => '\entphp\datatypes\to_date',
+                'time'         => '\entphp\datatypes\to_time_strict',
+                'time|null'    => '\entphp\datatypes\to_time',
         ];
     }
 
@@ -125,7 +126,7 @@ class ObjectDeserializer implements SchemaDeserializer {
 
     private function value_of(array $info, array $data): mixed {
         $converter = $info[ 'converter' ] ?? null;
-        $raw       = $this->raw_of( $info, $data );
+        $raw = $this->raw_of( $info, $data );
 
         if ( $converter === null && isset( $info[ 'kind' ] ) ) {
             return $this->parse_of_kind( $info, $data, $raw );
@@ -136,7 +137,7 @@ class ObjectDeserializer implements SchemaDeserializer {
         }
 
         if ( $converter === null ) {
-            $converter = new ObjectDeserializer( $info[ 'classname' ], $info[ 'item_schema' ] );
+            $converter = new ObjectDeserializer( $info[ 'classname' ], $this->metadata );
         }
 
         if ( $info[ 'arity' ] === 'n' ) {
@@ -152,8 +153,9 @@ class ObjectDeserializer implements SchemaDeserializer {
 
     public function instance(array $data): object|array {
         $instance = $this->class->newInstanceWithoutConstructor();
+        $schema = $this->metadata->schema_of( $this->classname );
 
-        foreach ( $this->schema->properties() as $name => $info ) {
+        foreach ( $schema->properties() as $name => $info ) {
             $property = $this->class->getProperty( $name );
             $property->setAccessible( true );
 
@@ -178,7 +180,6 @@ class ObjectDeserializer implements SchemaDeserializer {
     }
 
     public function schema(): Schema {
-        return $this->schema;
+        return $this->metadata->schema_of( $this->classname );
     }
-
 }

@@ -22,6 +22,7 @@ use basin\concepts\convert\Serializer;
 use basin\concepts\Schema;
 use entphp\identity\IdentityTracker;
 use entphp\identity\TransientIdentity;
+use entphp\meta\MetadataStore;
 
 /**
  * Description of ObjectSerializer
@@ -31,10 +32,10 @@ use entphp\identity\TransientIdentity;
 class ObjectSerializer implements Serializer {
 
     public static function of_class(string $classname, string $context, IdentityTracker $id_factory) {
-        $class  = new \ReflectionClass( $classname );
-        $schema = TableSchema::of_class( $class, $context );
+        $metadata = new MetadataStore( $context );
+        $metadata->visit( $classname );
 
-        return new self( $classname, $schema, $id_factory );
+        return new self( $classname, $metadata, $id_factory );
     }
 
     /**
@@ -45,9 +46,9 @@ class ObjectSerializer implements Serializer {
 
     /**
      *
-     * @var Schema
+     * @var MetadataStore
      */
-    private $schema;
+    private $metadata;
 
     /**
      *
@@ -67,12 +68,12 @@ class ObjectSerializer implements Serializer {
      */
     private $class;
 
-    public function __construct(string $classname, Schema $schema, IdentityTracker $id_factory, array $defaults = []) {
-        $this->classname  = $classname;
-        $this->schema     = $schema;
+    public function __construct(string $classname, MetadataStore $metadata, IdentityTracker $id_factory, array $defaults = []) {
+        $this->classname = $classname;
+        $this->metadata = $metadata;
         $this->id_factory = $id_factory;
-        $this->defaults   = $defaults;
-        $this->class      = new \ReflectionClass( $classname );
+        $this->defaults = $defaults;
+        $this->class = new \ReflectionClass( $classname );
     }
 
     private function init_row(array $defaults, array $link, ?object $object): array {
@@ -128,24 +129,24 @@ class ObjectSerializer implements Serializer {
             if ( isset( $row[ $key ] ) ) {
                 $link_data[ $handle ] = $row[ $key ];
             } else {
-                if ( ! isset( $row[ '__identity' ] ) ) {
+                if ( !isset( $row[ '__identity' ] ) ) {
                     $this->throw_missing_field( $key, $classname, print_r( $row, true ) );
                 }
                 $identity = $row[ '__identity' ];
 
-                if ( ! $identity->has_field( $key ) || ! $identity instanceof TransientIdentity ) {
+                if ( !$identity->has_field( $key ) || !$identity instanceof TransientIdentity ) {
                     $this->throw_missing_field( $key, $classname, print_r( $identity, true ) );
                 }
 
                 $transient_key = $identity->replace_with_transient( $key );
 
-                if ( ! isset( $row[ $transient_key ] ) ) {
+                if ( !isset( $row[ $transient_key ] ) ) {
                     $this->throw_missing_field( $transient_key, $classname, print_r( $identity, true ) );
                 }
 
                 $link_data[ $handle ] = $row[ $transient_key ];
 
-                if ( ! isset( $link_data[ '__transient_patches' ] ) ) {
+                if ( !isset( $link_data[ '__transient_patches' ] ) ) {
                     $link_data[ '__transient_patches' ] = [];
                 }
                 $link_data[ '__transient_patches' ][ $transient_key ] = $key;
@@ -169,7 +170,7 @@ class ObjectSerializer implements Serializer {
     }
 
     private function merge_data(array $data, string $source, array $record): array {
-        if ( ! isset( $data[ $source ] ) ) {
+        if ( !isset( $data[ $source ] ) ) {
             $data[ $source ] = [ $record ];
         } else {
             $data[ $source ] = array_merge( $data[ $source ], [ $record ] );
@@ -204,13 +205,13 @@ class ObjectSerializer implements Serializer {
 
             $link_spec = $info[ 'link' ];
 
-            $child_schema = $info[ 'item_schema' ];
-            $child_class  = new \ReflectionClass( $info[ 'classname' ] );
+            $child_schema = $this->metadata->schema_of( $info[ 'classname' ] );
+            $child_class = new \ReflectionClass( $info[ 'classname' ] );
             if ( $info[ 'arity' ] === 'n' ) {
                 $link = $this->link_from( $row, $link_spec, $class->name );
                 $data = $this->recursive_breakup_array( $data, $child_schema, $child_class, $value, $link );
             } else {
-                $data          = $this->recursive_breakup( $data, $child_schema, $child_class, $value, [] );
+                $data = $this->recursive_breakup( $data, $child_schema, $child_class, $value, [] );
                 $link_identity = $this->link_to( $value, $info[ 'classname' ] );
 
                 $row = $link_identity->fill_as_fk( $row, $name );
@@ -221,14 +222,14 @@ class ObjectSerializer implements Serializer {
     }
 
     public function breakup(object $object): array {
-        return $this->recursive_breakup( [], $this->schema, $this->class, $object );
+        return $this->recursive_breakup( [], $this->schema(), $this->class, $object );
     }
 
     public function breakup_all(array $objects): array {
         $data = [];
 
         foreach ( $objects as $object ) {
-            $data = $this->recursive_breakup( $data, $this->schema, $this->class, $object );
+            $data = $this->recursive_breakup( $data, $this->schema(), $this->class, $object );
         }
 
         return $data;
@@ -239,7 +240,6 @@ class ObjectSerializer implements Serializer {
     }
 
     public function schema(): Schema {
-        return $this->schema;
+        return $this->metadata->schema_of( $this->classname );
     }
-
 }

@@ -33,12 +33,12 @@ class FetchQueryTest extends TestCase {
 
     private function get_pdo_sqlite() {
         $pdo = new PDO(
-            'sqlite:' . __DIR__ . '/testdb.sqlite', null, null,
-            [
-            \PDO::ATTR_PERSISTENT        => true,
-            \PDO::ATTR_EMULATE_PREPARES  => false,
-            \PDO::ATTR_STRINGIFY_FETCHES => false
-            ]
+                'sqlite:' . __DIR__ . '/testdb.sqlite', null, null,
+                [
+                \PDO::ATTR_PERSISTENT        => true,
+                \PDO::ATTR_EMULATE_PREPARES  => false,
+                \PDO::ATTR_STRINGIFY_FETCHES => false
+                ]
         );
 
         return $pdo;
@@ -53,7 +53,7 @@ class FetchQueryTest extends TestCase {
         foreach ( $query->values() as $value ) {
             $st->bindValue( $i, $value );
 
-            $i ++;
+            $i++;
         }
 
         $st->execute();
@@ -66,10 +66,10 @@ class FetchQueryTest extends TestCase {
         $pdo = $this->get_pdo_sqlite();
 
         $query = \entphp\query\SQLFetchQueryBuilder::start()
-            ->select( "cts.*" )
-            ->from( 'contacts', 'cts' )
-            ->filter_by( 'per_row_main', 'primary_email LIKE ?', '%outlook.com' )
-            ->into_query();
+                ->select( "cts.*" )
+                ->from( 'contacts', 'cts' )
+                ->filter_by( 'per_row_main', 'primary_email LIKE ?', '%outlook.com' )
+                ->into_query();
 
         $records = $this->execute_query( $pdo, $query );
 
@@ -89,15 +89,15 @@ class FetchQueryTest extends TestCase {
     public function testFetchDerivedValues() {
         $pdo = $this->get_pdo_sqlite();
 
-        $fetch_node = \entphp\query\SQLFetchNode::of_class( Contact::class );
+        $metadata = new entphp\meta\MetadataStore( 'sql' );
 
-        $query = $fetch_node->query_for( [ 'person_id' => [ 1, 2, 3 ] ] )->into_query();
+        $query = $metadata->query_for( Contact::class, [ 'person_id' => [ 1, 2, 3 ] ] )->into_query();
 
         $records = $this->execute_query( $pdo, $query );
 
         $this->assertEquals( 7, count( $records ) );
 
-        $builder = new ObjectDeserializer( Contact::class, $fetch_node->schema() );
+        $builder = new ObjectDeserializer( Contact::class, $metadata );
 
         $contacts = $builder->instance_all( $records );
 
@@ -112,10 +112,10 @@ class FetchQueryTest extends TestCase {
         $pdo = $this->get_pdo_sqlite();
 
         $query = \entphp\query\SQLFetchQueryBuilder::start()
-            ->select( 'p.*' )
-            ->from( 'people', 'p' )
-            ->filter_by( 'per_row_main', 'person_id = 1' )
-            ->into_query();
+                ->select( 'p.*' )
+                ->from( 'people', 'p' )
+                ->filter_by( 'per_row_main', 'person_id = 1' )
+                ->into_query();
 
         $planner = new \entphp\query\SQLFetchPlanner( $pdo );
         $people = $planner->fetch_all( Person::class, $query );
@@ -131,5 +131,4 @@ class FetchQueryTest extends TestCase {
             }
         }
     }
-
 }

@@ -32,71 +32,7 @@ use entphp\datatypes\None;
  */
 class TableSchema implements Schema {
 
-    public static function of_primitive(\ReflectionProperty $property, \ReflectionAttribute $primitive) {
-        $arguments = $primitive->getArguments();
-
-        $settings = $arguments[ 'settings' ];
-        $name = $property->getName();
-        $field = $settings[ 'field' ] ?? $property->getName();
-        $kind = $arguments[ 'kind' ];
-        $custom_converter = $settings[ 'custom_converter' ] ?? null;
-
-        $content = [
-            'arity'     => 1,
-            'field'     => $field,
-            'kind'      => $kind,
-            'converter' => $custom_converter,
-            'default'   => $settings[ 'default' ] ?? None::instance(),
-        ];
-
-        return [ $name, $content ];
-    }
-
-    public static function of_array(\ReflectionProperty $property, \ReflectionAttribute $array, string $context) {
-        $arguments = $array->getArguments();
-
-        $classname = $arguments[ 'classname' ];
-        $settings = $arguments[ 'settings' ];
-        $name = $property->getName();
-        $custom_converter = $settings[ 'custom_converter' ] ?? null;
-
-        $content = [
-            'arity'       => 'n',
-            'field'       => $name,
-            'classname'   => $classname,
-            'converter'   => $custom_converter,
-            'location'    => 'foreign',
-            'link'        => $arguments[ 'ref' ],
-            'default'     => $settings[ 'default' ] ?? [],
-            'item_schema' => self::of_class( new \ReflectionClass( $classname ), $context ),
-        ];
-
-        return [ $name, $content ];
-    }
-
-    public static function of_object(\ReflectionProperty $property, \ReflectionAttribute $object, string $context) {
-        $arguments = $object->getArguments();
-
-        $classname = $arguments[ 'classname' ];
-        $settings = $arguments[ 'settings' ];
-        $name = $property->getName();
-        $custom_converter = $settings[ 'custom_converter' ] ?? null;
-
-        $content = [
-            'arity'       => '?',
-            'field'       => $name,
-            'classname'   => $classname,
-            'converter'   => $custom_converter,
-            'location'    => 'foreign',
-            'link'        => [],
-            'default'     => $settings[ 'default' ] ?? null,
-            'item_schema' => self::of_class( new \ReflectionClass( $classname ), $context ),
-        ];
-
-        return [ $name, $content ];
-    }
-
-    public static function find_source(\ReflectionClass $class, string $context): string {
+    public static function source_of(\ReflectionClass $class, string $context): string {
         $attributes = $class->getAttributes( MapSource::class );
 
         $source = null;
@@ -118,8 +54,72 @@ class TableSchema implements Schema {
         return $source;
     }
 
+    public static function of_primitive(\ReflectionProperty $property, \ReflectionAttribute $primitive) {
+        $arguments = $primitive->getArguments();
+
+        $settings = $arguments[ 'settings' ];
+        $name = $property->getName();
+        $field = $settings[ 'field' ] ?? $property->getName();
+        $kind = $arguments[ 'kind' ];
+        $custom_converter = $settings[ 'custom_converter' ] ?? null;
+
+        $content = [
+                'arity'     => 1,
+                'field'     => $field,
+                'kind'      => $kind,
+                'converter' => $custom_converter,
+                'default'   => $settings[ 'default' ] ?? None::instance(),
+        ];
+
+        return [ $name, $content ];
+    }
+
+    public static function of_array(\ReflectionProperty $property, \ReflectionAttribute $array, string $context) {
+        $arguments = $array->getArguments();
+
+        $classname = $arguments[ 'classname' ];
+        $settings = $arguments[ 'settings' ];
+        $name = $property->getName();
+        $custom_converter = $settings[ 'custom_converter' ] ?? null;
+
+        $content = [
+                'arity'       => 'n',
+                'field'       => $name,
+                'classname'   => $classname,
+                'converter'   => $custom_converter,
+                'location'    => 'foreign',
+                'link'        => $arguments[ 'ref' ],
+                'default'     => $settings[ 'default' ] ?? [],
+                'item_schema' => [ $classname, $context ],
+        ];
+
+        return [ $name, $content ];
+    }
+
+    public static function of_object(\ReflectionProperty $property, \ReflectionAttribute $object, string $context) {
+        $arguments = $object->getArguments();
+
+        $classname = $arguments[ 'classname' ];
+        $settings = $arguments[ 'settings' ];
+        $name = $property->getName();
+        $custom_converter = $settings[ 'custom_converter' ] ?? null;
+
+        $content = [
+                'arity'       => '?',
+                'field'       => $name,
+                'classname'   => $classname,
+                'converter'   => $custom_converter,
+                'location'    => 'foreign',
+                'link'        => [],
+                'default'     => $settings[ 'default' ] ?? null,
+                'item_schema' => [ $classname, $context ],
+        ];
+
+        return [ $name, $content ];
+    }
+
     public static function of_class(\ReflectionClass $class, string $context): TableSchema {
-        $source = self::find_source( $class, $context );
+        $source = self::source_of( $class, $context );
 
         $properties = [];
 
@@ -193,12 +193,12 @@ class TableSchema implements Schema {
         $sources = [];
 
         foreach ( $far_sourced as $name => $property ) {
-            if ( ! isset( $property[ 'classname' ] ) ) {
+            if ( !isset( $property[ 'classname' ] ) ) {
                 continue;
             }
 
             $classname = $property[ 'classname' ];
-            if ( ! isset( $sources[ $classname ] ) ) {
+            if ( !isset( $sources[ $classname ] ) ) {
                 $sources[ $classname ] = [];
             }
 
@@ -206,6 +206,10 @@ class TableSchema implements Schema {
         }
 
         return $sources;
+    }
+
+    public function set_property_field(string $key, string $field, mixed $value) {
+        $this->properties->set( $key, $field, $value );
     }
 
     public function properties(): array {
@@ -245,7 +249,6 @@ class TableSchema implements Schema {
     }
 
     public function is_writeable(): bool {
-        return ! $this->readonly;
+        return !$this->readonly;
     }
-
 }
