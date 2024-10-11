@@ -43,6 +43,79 @@ class Entities implements Repository {
         $this->planner = new SQLFetchPlanner( $pdo, $this->metadata );
         $this->id_tracker = new IdentityTrackerSequential( 'sql' );
     }
+    
+    private function compile_join_plan( array $plan, array $classnames ): array {
+        $leftovers = [];
+        
+        foreach ( $classnames as $classname ) {
+            $join_path = false;
+            
+            foreach( $plan as $candidate ) {
+                if ( $this->metadata->has_relation_1( $candidate[0], $classname ) ) {
+                    $plan[] = [ $classname, $candidate[0] ];
+                    $join_path = true;
+                    break;
+                }
+            }
+            
+            if ( ! $join_path ) {
+                $leftovers[] = $classname;
+            }
+        }
+        
+        return [ $plan, $classnames ];
+    }
+    
+    private function compile_projection(array $fields): SQLFetchQueryBuilder {
+        $aliases = [];
+        $selection = [];
+        $i = 0;
+        
+        foreach ( $fields as $field ) {
+            [ $classname, $name ] = explode( '.', $field );
+            
+            if ( !isset( $aliases[ $classname ] ) ) {
+                $aliases[ $classname ] = 'ent' . $i;
+                $i++;
+            }
+            
+            $selection[] = $aliases[ $classname ] . '.' . $field;
+        }
+        
+        $classnames = array_keys( $aliases );
+        $root = array_shift( $classnames );
+        
+        $builder = SQLFetchQueryBuilder::start()
+            ->select( ...$selection )
+            ->from( $root, $aliases[ $root ] );
+            
+        $joins = [ [ $root ] ];
+        
+        $leftovers = $classnames;
+        $count = count( $leftovers );
+        $old_count = $count + 1;
+        
+        while ( $count > 0 && $count < $old_count ) {
+            [ $joins, $leftovers ] = $this->compile_join_plan( $joins, $leftovers );
+            $old_count = $count;
+            $count = count( $leftovers );
+        }
+        
+        if ( $count > 0 ) {
+            throw new \RuntimeException( 'projection ' . implode( $fields, ',' ) . ' not possible because not all classes are linked' );
+        }
+        
+        foreach( $plan as $join ) {
+            if ( count( $join ) === 1 ) {
+                continue;
+            }
+            
+            $map = $this->metadata->relation_1_map( $join[1], $join[0] ); // intentional, candidate is at position 1 and the next to join is at position 0
+            $builder = $builder->left_join( $join[0], $map );
+        }
+        
+        return $builder;
+    }
 
     public function fetch(string|array $fields, mixed $id): object|array|null {
         if ( $id === null ) {
@@ -55,7 +128,9 @@ class Entities implements Repository {
             $key = $info[ 'field' ];
             $builder = $this->metadata->query_for_key( $classname, $key, $id );
         } else {
-            throw new \RuntimeException( 'Not supported yet' );
+            $builder = $this
+                ->compile_projection( $fields )
+                ->filter_by( 'per_row_id', 'id', $id );
         }
 
         $records = $this->planner->fetch_all( $classname, $builder->into_query() );
