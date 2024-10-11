@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-namespace alessio\entphp\drivers;
+namespace entphp\drivers;
 
 /**
  *
@@ -25,5 +25,7 @@ namespace alessio\entphp\drivers;
 interface SQLDriver {
 
     public function find_primary_keys_for(string $table): array;
+
+    public function exec(string $query): mixed;
 
 }

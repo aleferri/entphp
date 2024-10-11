@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-namespace alessio\entphp\drivers;
+namespace entphp\drivers;
 
 /**
  * Description of SQLiteDriver
@@ -25,6 +25,15 @@ namespace alessio\entphp\drivers;
  */
 class SQLiteDriver implements SQLDriver {
 
+    public const PRIMITIVE_MAPPINGS = [
+        'string'   => 'VARCHAR(255)',
+        'int'      => 'INT',
+        'float'    => 'FLOAT',
+        'date'     => 'DATE',
+        'datetime' => 'DATETIME',
+        'time'     => 'TIME'
+    ];
+
     private $pdo;
 
     public function __construct(\PDO $pdo) {
@@ -32,8 +41,8 @@ class SQLiteDriver implements SQLDriver {
     }
 
     public function find_primary_keys_for(string $table): array {
-        $result = $this->pdo->query ( "SELECT * FROM pragma_table_info('{$table}') WHERE pk" );
-        $raw_keys = $result->fetchAll ();
+        $result = $this->pdo->query( "SELECT * FROM pragma_table_info('{$table}') WHERE pk" );
+        $raw_keys = $result->fetchAll();
 
         $keys = [];
 
@@ -42,6 +51,15 @@ class SQLiteDriver implements SQLDriver {
         }
 
         return $keys;
+    }
+
+    public function exec(string $query): mixed {
+        return $this->pdo->exec( $query );
+    }
+
+    public function map_type(string $name): string {
+        $trimmed = trim( str_replace( '|null', '', $name ) );
+        return self::PRIMITIVE_MAPPINGS[ $trimmed ];
     }
 
 }

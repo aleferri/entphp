@@ -67,8 +67,8 @@ class MetadataStore {
 
         $table = $source;
         $query = SQLFetchQueryBuilder::start()
-                ->from( $table, 'ent' )
-                ->select( 'ent.*' );
+            ->from( $table, 'ent' )
+            ->select( 'ent.*' );
 
         foreach ( $values as $key => $list ) {
             $query = $query->filter_by( 'per_row_' . $key, $key . ' IN (' . implode( ',', $list ) . ')' );
@@ -83,9 +83,9 @@ class MetadataStore {
 
         $table = $source;
         $query = SQLFetchQueryBuilder::start()
-                ->from( $table, 'ent' )
-                ->select( 'ent.*' )
-                ->filter_by( 'per_row_' . $key, $key . ' = ?', $id );
+            ->from( $table, 'ent' )
+            ->select( 'ent.*' )
+            ->filter_by( 'per_row_' . $key, $key . ' = ?', $id );
 
         return $query;
     }
@@ -96,8 +96,8 @@ class MetadataStore {
 
         $table = $source;
         $query = SQLFetchQueryBuilder::start()
-                ->from( $table, 'ent' )
-                ->select( 'ent.*' );
+            ->from( $table, 'ent' )
+            ->select( 'ent.*' );
 
         return $query;
     }
@@ -130,4 +130,27 @@ class MetadataStore {
 
         return $identity_info[ 0 ];
     }
+
+    public function report_identity(string $classname): array {
+        [ $source, $schema, $identity_info ] = $this->visit( $classname );
+
+        $identity_fields = [];
+
+        foreach ( $identity_info as $identity_field ) {
+            $field = $identity_field[ 'field' ];
+            $identity_fields[ $field ] = $identity_field;
+        }
+
+        foreach ( $schema->properties() as $prop_info ) {
+            $location = $prop_info[ 'location' ] ?? 'local';
+            $field = $prop_info[ 'field' ];
+
+            if ( $location === 'local' && isset( $identity_fields[ $field ] ) ) {
+                $identity_fields[ $field ][ 'kind' ] = $prop_info[ 'kind' ];
+            }
+        }
+
+        return $identity_fields;
+    }
+
 }

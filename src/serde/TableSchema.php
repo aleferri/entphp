@@ -20,6 +20,7 @@ namespace entphp\serde;
 
 use basin\concepts\Schema;
 use basin\attributes\MapPrimitive;
+use basin\attributes\MapIdentity;
 use basin\attributes\MapArray;
 use basin\attributes\MapObject;
 use basin\attributes\MapSource;
@@ -68,7 +69,7 @@ class TableSchema implements Schema {
                 }
 
                 $settings = $arguments[ 'settings' ] ?? [];
-                $identity_info[] = [ 'settings' => $settings, 'field' => $property ];
+                $identity_info[] = [ 'settings' => $settings, 'field' => $property->getName() ];
             }
         }
 
@@ -85,11 +86,11 @@ class TableSchema implements Schema {
         $custom_converter = $settings[ 'custom_converter' ] ?? null;
 
         $content = [
-                'arity'     => 1,
-                'field'     => $field,
-                'kind'      => $kind,
-                'converter' => $custom_converter,
-                'default'   => $settings[ 'default' ] ?? None::instance(),
+            'arity'     => 1,
+            'field'     => $field,
+            'kind'      => $kind,
+            'converter' => $custom_converter,
+            'default'   => $settings[ 'default' ] ?? None::instance(),
         ];
 
         return [ $name, $content ];
@@ -104,14 +105,14 @@ class TableSchema implements Schema {
         $custom_converter = $settings[ 'custom_converter' ] ?? null;
 
         $content = [
-                'arity'       => 'n',
-                'field'       => $name,
-                'classname'   => $classname,
-                'converter'   => $custom_converter,
-                'location'    => 'foreign',
-                'link'        => $arguments[ 'ref' ],
-                'default'     => $settings[ 'default' ] ?? [],
-                'item_schema' => [ $classname, $context ],
+            'arity'       => 'n',
+            'field'       => $name,
+            'classname'   => $classname,
+            'converter'   => $custom_converter,
+            'location'    => 'foreign',
+            'link'        => $arguments[ 'ref' ],
+            'default'     => $settings[ 'default' ] ?? [],
+            'item_schema' => [ $classname, $context ],
         ];
 
         return [ $name, $content ];
@@ -126,14 +127,14 @@ class TableSchema implements Schema {
         $custom_converter = $settings[ 'custom_converter' ] ?? null;
 
         $content = [
-                'arity'       => '?',
-                'field'       => $name,
-                'classname'   => $classname,
-                'converter'   => $custom_converter,
-                'location'    => 'foreign',
-                'link'        => [],
-                'default'     => $settings[ 'default' ] ?? null,
-                'item_schema' => [ $classname, $context ],
+            'arity'       => '?',
+            'field'       => $name,
+            'classname'   => $classname,
+            'converter'   => $custom_converter,
+            'location'    => 'foreign',
+            'link'        => [],
+            'default'     => $settings[ 'default' ] ?? null,
+            'item_schema' => [ $classname, $context ],
         ];
 
         return [ $name, $content ];
@@ -214,12 +215,12 @@ class TableSchema implements Schema {
         $sources = [];
 
         foreach ( $far_sourced as $name => $property ) {
-            if ( !isset( $property[ 'classname' ] ) ) {
+            if ( ! isset( $property[ 'classname' ] ) ) {
                 continue;
             }
 
             $classname = $property[ 'classname' ];
-            if ( !isset( $sources[ $classname ] ) ) {
+            if ( ! isset( $sources[ $classname ] ) ) {
                 $sources[ $classname ] = [];
             }
 
@@ -270,6 +271,7 @@ class TableSchema implements Schema {
     }
 
     public function is_writeable(): bool {
-        return !$this->readonly;
+        return ! $this->readonly;
     }
+
 }

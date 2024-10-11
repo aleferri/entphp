@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-namespace alessio\entphp\drivers;
+namespace entphp\drivers;
 
 /**
  * Description of MySQLDriver
@@ -24,6 +24,15 @@ namespace alessio\entphp\drivers;
  * @author Alessio
  */
 class MySQLDriver {
+
+    public const PRIMITIVE_MAPPINGS = [
+        'string'   => 'VARCHAR(255)',
+        'int'      => 'INT',
+        'float'    => 'FLOAT',
+        'date'     => 'DATE',
+        'datetime' => 'DATETIME',
+        'time'     => 'TIME'
+    ];
 
     private $pdo;
 
@@ -40,6 +49,14 @@ class MySQLDriver {
         }
 
         return $keys;
+    }
+
+    public function exec(string $query): mixed {
+        return $this->pdo->exec( $query );
+    }
+
+    public function map_type(string $name): string {
+        return self::PRIMITIVE_MAPPINGS[ $name ];
     }
 
 }

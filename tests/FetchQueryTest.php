@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
 require_once 'Contact.php';
 require_once 'Address.php';
 require_once 'Person.php';
+require_once 'Message.php';
 
 use entphp\serde\ObjectDeserializer;
 
@@ -33,12 +34,12 @@ class FetchQueryTest extends TestCase {
 
     private function get_pdo_sqlite() {
         $pdo = new PDO(
-                'sqlite:' . __DIR__ . '/testdb.sqlite', null, null,
-                [
-                \PDO::ATTR_PERSISTENT        => true,
-                \PDO::ATTR_EMULATE_PREPARES  => false,
-                \PDO::ATTR_STRINGIFY_FETCHES => false
-                ]
+            'sqlite:' . __DIR__ . '/testdb.sqlite', null, null,
+            [
+            \PDO::ATTR_PERSISTENT        => true,
+            \PDO::ATTR_EMULATE_PREPARES  => false,
+            \PDO::ATTR_STRINGIFY_FETCHES => false
+            ]
         );
 
         return $pdo;
@@ -53,7 +54,7 @@ class FetchQueryTest extends TestCase {
         foreach ( $query->values() as $value ) {
             $st->bindValue( $i, $value );
 
-            $i++;
+            $i ++;
         }
 
         $st->execute();
@@ -66,10 +67,10 @@ class FetchQueryTest extends TestCase {
         $pdo = $this->get_pdo_sqlite();
 
         $query = \entphp\query\SQLFetchQueryBuilder::start()
-                ->select( "cts.*" )
-                ->from( 'contacts', 'cts' )
-                ->filter_by( 'per_row_main', 'primary_email LIKE ?', '%outlook.com' )
-                ->into_query();
+            ->select( "cts.*" )
+            ->from( 'contacts', 'cts' )
+            ->filter_by( 'per_row_main', 'primary_email LIKE ?', '%outlook.com' )
+            ->into_query();
 
         $records = $this->execute_query( $pdo, $query );
 
@@ -112,10 +113,10 @@ class FetchQueryTest extends TestCase {
         $pdo = $this->get_pdo_sqlite();
 
         $query = \entphp\query\SQLFetchQueryBuilder::start()
-                ->select( 'p.*' )
-                ->from( 'people', 'p' )
-                ->filter_by( 'per_row_main', 'person_id = 1' )
-                ->into_query();
+            ->select( 'p.*' )
+            ->from( 'people', 'p' )
+            ->filter_by( 'per_row_main', 'person_id = 1' )
+            ->into_query();
 
         $planner = new \entphp\query\SQLFetchPlanner( $pdo );
         $people = $planner->fetch_all( Person::class, $query );
@@ -131,4 +132,14 @@ class FetchQueryTest extends TestCase {
             }
         }
     }
+
+    public function testEntities() {
+        $pdo = $this->get_pdo_sqlite();
+        $driver = new entphp\drivers\SQLiteDriver( $pdo );
+        $entities = new entphp\serde\Entities( $pdo, $driver );
+        $entities->create_table( Message::class );
+
+        $this->assertTrue( true );
+    }
+
 }

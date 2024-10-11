@@ -21,7 +21,6 @@ use basin\attributes\MapArray;
 use basin\attributes\MapObject;
 use basin\attributes\MapSource;
 use basin\attributes\MapIdentity;
-use basin\concepts\Persistable;
 
 /**
  * Description of People
@@ -41,7 +40,7 @@ class Person {
         private string $last_name,
         #[MapPrimitive(context: 'sql', kind: 'date', settings: [])]
         private \DateTimeImmutable $born_at,
-        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '' ])]
+        #[MapPrimitive(context: 'sql', kind: 'string', settings: [ 'default' => '', 'length' => 'medium' ])]
         private string $notes = '',
         #[MapObject(context: 'sql', classname: 'Address', ref: [], settings: [])]
         private ?Address $address = null,
@@ -61,7 +60,7 @@ class Person {
     }
 
     public function with_address(?Address $address): Person {
-        $person          = clone $this;
+        $person = clone $this;
         $person->address = $address;
         return $person;
     }
@@ -93,7 +92,7 @@ class Person {
     }
 
     public function with_first_name(string $firstname): Person {
-        $person             = clone $this;
+        $person = clone $this;
         $person->first_name = $firstname;
         return $person;
     }
@@ -103,7 +102,7 @@ class Person {
     }
 
     public function with_last_name(string $lastname): Person {
-        $person            = clone $this;
+        $person = clone $this;
         $person->last_name = $lastname;
         return $person;
     }
@@ -117,7 +116,7 @@ class Person {
     }
 
     public function with_notes(string $notes): Person {
-        $person        = clone $this;
+        $person = clone $this;
         $person->notes = $notes;
         return $person;
     }

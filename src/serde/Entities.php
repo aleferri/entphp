@@ -22,6 +22,7 @@ use basin\concepts\query\FetchQueryBuilder;
 use basin\concepts\query\FetchQuery;
 use basin\concepts\query\Filters;
 use basin\concepts\Repository;
+use entphp\drivers\SQLDriver;
 use entphp\meta\MetadataStore;
 use entphp\query\SQLFetchQueryBuilder;
 use entphp\query\SQLFetchPlanner;
@@ -36,84 +37,86 @@ class Entities implements Repository {
 
     private $planner;
     private $metadata;
+    private $driver;
     private $id_tracker;
 
-    public function __construct(\PDO $pdo) {
+    public function __construct(\PDO $pdo, SQLDriver $driver) {
         $this->metadata = new MetadataStore();
+        $this->driver = $driver;
         $this->planner = new SQLFetchPlanner( $pdo, $this->metadata );
         $this->id_tracker = new IdentityTrackerSequential( 'sql' );
     }
-    
-    private function compile_join_plan( array $plan, array $classnames ): array {
+
+    private function compile_join_plan(array $plan, array $classnames): array {
         $leftovers = [];
-        
+
         foreach ( $classnames as $classname ) {
             $join_path = false;
-            
-            foreach( $plan as $candidate ) {
-                if ( $this->metadata->has_relation_1( $candidate[0], $classname ) ) {
-                    $plan[] = [ $classname, $candidate[0] ];
+
+            foreach ( $plan as $candidate ) {
+                if ( $this->metadata->has_relation_1( $candidate[ 0 ], $classname ) ) {
+                    $plan[] = [ $classname, $candidate[ 0 ] ];
                     $join_path = true;
                     break;
                 }
             }
-            
+
             if ( ! $join_path ) {
                 $leftovers[] = $classname;
             }
         }
-        
+
         return [ $plan, $classnames ];
     }
-    
+
     private function compile_projection(array $fields): SQLFetchQueryBuilder {
         $aliases = [];
         $selection = [];
         $i = 0;
-        
+
         foreach ( $fields as $field ) {
             [ $classname, $name ] = explode( '.', $field );
-            
-            if ( !isset( $aliases[ $classname ] ) ) {
+
+            if ( ! isset( $aliases[ $classname ] ) ) {
                 $aliases[ $classname ] = 'ent' . $i;
-                $i++;
+                $i ++;
             }
-            
+
             $selection[] = $aliases[ $classname ] . '.' . $field;
         }
-        
+
         $classnames = array_keys( $aliases );
         $root = array_shift( $classnames );
-        
+
         $builder = SQLFetchQueryBuilder::start()
             ->select( ...$selection )
             ->from( $root, $aliases[ $root ] );
-            
+
         $joins = [ [ $root ] ];
-        
+
         $leftovers = $classnames;
         $count = count( $leftovers );
         $old_count = $count + 1;
-        
+
         while ( $count > 0 && $count < $old_count ) {
             [ $joins, $leftovers ] = $this->compile_join_plan( $joins, $leftovers );
             $old_count = $count;
             $count = count( $leftovers );
         }
-        
+
         if ( $count > 0 ) {
             throw new \RuntimeException( 'projection ' . implode( $fields, ',' ) . ' not possible because not all classes are linked' );
         }
-        
-        foreach( $plan as $join ) {
+
+        foreach ( $plan as $join ) {
             if ( count( $join ) === 1 ) {
                 continue;
             }
-            
-            $map = $this->metadata->relation_1_map( $join[1], $join[0] ); // intentional, candidate is at position 1 and the next to join is at position 0
-            $builder = $builder->left_join( $join[0], $map );
+
+            $map = $this->metadata->relation_1_map( $join[ 1 ], $join[ 0 ] ); // intentional, candidate is at position 1 and the next to join is at position 0
+            $builder = $builder->left_join( $join[ 0 ], $map );
         }
-        
+
         return $builder;
     }
 
@@ -202,4 +205,55 @@ class Entities implements Repository {
     public function drop(object|array $data, int $policy = 1): bool {
 
     }
+
+    public function create_table(string $classname): mixed {
+        $this->metadata->visit( $classname );
+        [ $source, $schema, $identity_info ] = $this->metadata->get( $classname );
+
+        $identity_fields = $this->metadata->report_identity( $classname );
+
+        $fields = [];
+
+        foreach ( $schema->properties() as $info ) {
+            $location = $info[ 'location' ] ?? 'local';
+            $name = $info[ 'field' ];
+
+            if ( $location === 'local' ) {
+                $field_decl = $name . " " . $this->driver->map_type( $info[ 'kind' ] );
+
+                if ( isset( $identity_fields[ $name ] ) ) {
+                    $field_decl .= ' PRIMARY KEY NOT NULL';
+
+                    if ( isset( $identity_fields[ $name ][ 'settings' ][ 'autoincrement' ] ) ) {
+                        $field_decl .= ' AUTOINCREMENT';
+                    }
+                }
+
+                $fields[] = $field_decl;
+            } else {
+                if ( count( $info[ 'link' ] ) > 0 ) {
+                    continue;
+                }
+
+                $target_fields = $this->metadata->report_identity( $info[ 'classname' ] );
+
+                foreach ( $target_fields as $target_field ) {
+                    $fields[] = $name . '_' . $target_field[ 'field' ] . '_fk ' . $this->driver->map_type( $target_field[ 'kind' ] );
+                }
+            }
+        }
+
+        $sql_create = "\nCREATE TABLE IF NOT EXISTS {$source} (\n";
+        $sql_create .= implode( ",\n", $fields );
+        $sql_create .= ");\n";
+
+        $result = $this->driver->exec( $sql_create );
+
+        if ( $result === 1 ) {
+            return $sql_create;
+        }
+
+        return false;
+    }
+
 }
